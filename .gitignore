@@ -1,0 +1,10 @@
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+pixi.lock
+pixi.toml
+
+/.vscode/
+/figures/
+.DS_Store
+__pycache__/
