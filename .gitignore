@@ -2,7 +2,6 @@
 .pixi/*
 !.pixi/config.toml
 pixi.lock
-pixi.toml
 
 /.vscode/
 /out/
