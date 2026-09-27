@@ -5,6 +5,8 @@ pixi.lock
 pixi.toml
 
 /.vscode/
-/figures/
+/out/
 .DS_Store
 __pycache__/
+
+AGENTS.MD
