@@ -1,0 +1,475 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage[hidelinks]{hyperref}
+
+\title{Monte Carlo Scenario Generation for the SBA Asset--Liability Model\\
+       \large Diagnostic Findings and Algorithm Selection}
+\author{Prepared for the SBA project}
+\date{27 September 2026}
+
+\newcommand{\bp}{\,\text{bp}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This note selects a Monte Carlo algorithm for generating forward scenarios from
+the SBA term-structure model. Rather than choosing on theoretical grounds, we
+estimate the existing model on the full sample (284 monthly observations,
+January 2003 -- August 2026) and let its residual diagnostics drive the choice.
+Three findings determine the recommendation. First, the dominant credit-spread
+factor has excess kurtosis near $10$ and positive skewness, which disqualifies
+Gaussian innovations. Second, information criteria disagree sharply on lag
+order---AIC selects eight lags against BIC's one---and the parsimonious model is
+the appropriate one for simulation. Third, and most consequentially, applying
+first differences to the credit-spread factors discards their mean reversion and
+produces scenario sets in which $47\%$ of paths contain an economically
+impossible negative credit spread, against a historical base rate of $3.5\%$. We
+recommend a semiparametric VAR-bootstrap on a mixed-integration-order state
+vector, with the spread curve reparameterised as a shifted logarithm. This
+reduces the violation rate to $4.2\%$, consistent with history.
+\end{abstract}
+
+\section{Context and objective}
+
+The SBA project builds an economic scenario generator whose terminal purpose is
+portfolio allocation: scenarios feed estimates of expected return, risk,
+correlation and macroeconomic state, which in turn drive allocation decisions
+against a mortality-driven liability. The scenario set is therefore an
+intermediate product, and its quality is judged by whether allocation decisions
+taken against it are sound---not by in-sample fit alone.
+
+Two requirements follow, and they are not the same requirement:
+
+\begin{description}
+  \item[Statistical plausibility.] Simulated paths should reproduce the
+    distributional and dependence properties of the historical data: fat tails,
+    skewness, cross-factor correlation, and volatility clustering.
+  \item[Economic coherence.] Simulated states must be states the economy can
+    actually occupy. A scenario set can be well calibrated in every moment and
+    still be unusable if it contains negative credit spreads.
+\end{description}
+
+Section~\ref{sec:coherence} shows that the current model satisfies the first
+requirement tolerably and fails the second badly.
+
+\subsection{Model as estimated}
+
+The pipeline reduces each of two curves to three principal components, stacks the
+six scores, and fits a vector autoregression to their first differences:
+
+\begin{equation}
+  \Delta \mathbf{f}_t = \mathbf{c} + \sum_{i=1}^{p} \mathbf{A}_i \,
+  \Delta \mathbf{f}_{t-i} + \boldsymbol{\varepsilon}_t ,
+  \qquad
+  \mathbf{f}_t = \big(\text{TPC}_{1:3,t},\ \text{SPC}_{1:3,t}\big)^{\!\top} ,
+\end{equation}
+
+where the Treasury scores $\text{TPC}$ derive from the Treasury nominal spot
+curve and the spread scores $\text{SPC}$ from the HQM corporate spot curve minus
+the Treasury curve, both on a common 200-point maturity grid spanning
+$0.5$ to $100$ years.
+
+\section{Factor structure}
+
+Three components suffice for both curves. The Treasury curve retains $99.83\%$
+of variance and the spread curve $99.45\%$, with the conventional level, slope
+and curvature interpretation.
+
+\begin{table}[htbp]
+\centering
+\caption{Explained variance ratio by component.}
+\label{tab:evr}
+\begin{tabular}{lcccc}
+\toprule
+Curve & PC1 & PC2 & PC3 & Cumulative \\
+\midrule
+Treasury      & 0.9063 & 0.0821 & 0.0099 & 0.99829 \\
+Credit spread & 0.8703 & 0.0980 & 0.0262 & 0.99445 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The discarded $0.17\%$ is not uniformly distributed across maturities, and this
+matters more than the headline figure suggests. Reconstructing the Treasury
+curve from three components gives a root-mean-square error of $4.5\bp$ overall
+but $26.7\bp$ at the six-month point, with a maximum absolute error of
+$99.8\bp$.
+
+\begin{table}[htbp]
+\centering
+\caption{Three-component reconstruction error for the Treasury curve, by maturity.}
+\label{tab:recon}
+\begin{tabular}{lrrrrrrr}
+\toprule
+Maturity & 0.5y & 1y & 2y & 5y & 10y & 30y & 100y \\
+\midrule
+RMSE (bp) & 26.70 & 16.65 & 6.32 & 12.71 & 4.58 & 4.12 & 1.60 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Any simulation that reconstructs curves from simulated factors must therefore
+decide explicitly what to do with the residual. Discarding it silently
+introduces a systematic error of roughly a quarter of a percentage point at the
+short end, which propagates directly into short-horizon bond returns and into
+the discounting of near-dated liability cash flows.
+
+\section{Residual diagnostics}
+\label{sec:resid}
+
+\subsection{Lag order}
+
+Information criteria disagree materially. AIC selects eight lags; BIC and HQIC
+both select one. The difference is not cosmetic: the AIC specification estimates
+$49$ parameters per equation ($294$ in total) against $275$ usable observations,
+whereas the BIC specification estimates seven.
+
+\begin{table}[htbp]
+\centering
+\caption{Lag selection and companion-matrix stability. The largest eigenvalue
+modulus governs whether simulated paths remain bounded over long horizons.}
+\label{tab:lags}
+\begin{tabular}{lrrrr}
+\toprule
+Criterion & Lags & Parameters/eq. & Observations & $\max|\lambda|$ \\
+\midrule
+AIC        & 8 & 49 & 275 & 0.9089 \\
+BIC        & 1 &  7 & 282 & 0.4318 \\
+HQIC       & 1 &  7 & 282 & 0.4318 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Both specifications are stable, so neither will produce explosive paths. The
+choice rests on estimation variance instead. Over a sixty-month simulation
+horizon, coefficient error compounds, and the heavily parameterised AIC model
+carries far more of it for no diagnostic benefit: the portmanteau whiteness test
+rejects at $p < 0.001$ under \emph{both} specifications. Adding seven lags does
+not purchase white residuals, and so we prefer the parsimonious model and handle
+the residual dependence in the resampling scheme instead.
+
+\subsection{Distributional properties}
+
+The residuals are decisively non-Gaussian in two of six factors, and the two are
+economically important ones.
+
+\begin{table}[htbp]
+\centering
+\caption{Residual diagnostics for the BIC-selected specification. JB denotes the
+Jarque--Bera normality test; ARCH denotes Engle's test for conditional
+heteroskedasticity at twelve lags. Kurtosis is reported raw, so $3$ is the
+Gaussian reference value.}
+\label{tab:diag}
+\begin{tabular}{lrrrr}
+\toprule
+Factor & JB $p$ & ARCH $p$ & Skewness & Kurtosis \\
+\midrule
+TPC1 & $1.1\times10^{-1}$   & $9.4\times10^{-1}$   & $-0.02$ & 3.62 \\
+TPC2 & $6.2\times10^{-1}$   & $2.7\times10^{-2}$   & $-0.10$ & 3.21 \\
+TPC3 & $1.1\times10^{-44}$  & $2.0\times10^{-1}$   & $-0.80$ & 6.89 \\
+SPC1 & $7.5\times10^{-136}$ & $9.1\times10^{-2}$   & $ 1.17$ & 9.99 \\
+SPC2 & $2.4\times10^{-1}$   & $3.6\times10^{-3}$   & $-0.04$ & 3.49 \\
+SPC3 & $6.8\times10^{-1}$   & $1.7\times10^{-1}$   & $-0.00$ & 3.26 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+SPC1, the dominant credit-spread factor, has kurtosis close to $10$ and
+\emph{positive} skewness of $1.17$. This is the correct economic signature:
+credit spreads widen abruptly and tighten slowly. Gaussian innovations cannot
+represent an asymmetry of this kind, and a scenario set built on them will
+understate precisely the credit stress episodes that dominate the loss
+distribution of a bond-heavy portfolio.
+
+Conditional heteroskedasticity is present but not pervasive, reaching
+significance at the $5\%$ level in TPC2 and SPC2 only. This is relevant to the
+choice between a simple residual bootstrap and a GARCH-filtered scheme, and we
+return to it in Section~\ref{sec:algo}.
+
+\section{Over-differencing and the coherence failure}
+\label{sec:coherence}
+
+\subsection{Diagnosis}
+
+Augmented Dickey--Fuller tests on the individual factor levels show that the
+six factors are not alike in their persistence.
+
+\begin{table}[htbp]
+\centering
+\caption{Stationarity of factor levels and implied mean-reversion half-lives.
+ADF tests the null of a unit root; KPSS tests the null of stationarity.}
+\label{tab:adf}
+\begin{tabular}{lrrr}
+\toprule
+Factor & ADF $p$ (level) & KPSS $p$ (level) & Half-life (months) \\
+\midrule
+TPC1 & 0.3250 & 0.0100 & 43.0 \\
+TPC2 & 0.0932 & 0.0238 & 47.6 \\
+TPC3 & 0.0346 & 0.0100 & 13.9 \\
+SPC1 & 0.0530 & 0.0100 & 13.1 \\
+SPC2 & 0.1115 & 0.0100 & 12.7 \\
+SPC3 & 0.2363 & 0.0547 & 15.8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The Treasury level factor TPC1 behaves like an integrated process, with an ADF
+$p$-value of $0.33$ and a half-life of $43$ months; differencing it is correct.
+The spread factors mean-revert roughly three times faster, with half-lives near
+thirteen months, and the ADF test is borderline for SPC1 at $p = 0.053$.
+Differencing them imposes a random walk on a series that demonstrably returns to
+a central level.
+
+The consequence is visible directly in the spread itself. At the five-year
+point, the spread currently stands at $0.56\%$ against a sample mean of $0.99\%$
+and a sample minimum of $0.34\%$. Its monthly difference has standard deviation
+$0.205\%$, so a random walk implies a sixty-month standard deviation of
+$1.588\%$---roughly three times the level of the series being diffused. Nothing
+prevents such a process from crossing zero, and in simulation it does so
+constantly.
+
+\subsection{The historical base rate is not zero}
+
+One nuance shapes the remedy. The HQM corporate curve does occasionally sit
+\emph{below} the Treasury curve in the historical record: $11$ of $56{,}800$
+observed cells are non-positive, a rate of $0.019\%$, with a minimum of
+$-0.16\%$. Every one of these occurs at the six-month maturity, in eleven months
+clustered in 2020 and 2022---episodes of money-market dislocation in which the
+short end of a high-quality corporate curve can invert against Treasuries.
+
+This is a genuine feature of the data, not an error. The remedy must therefore
+not impose a hard positivity floor. The target is the historical rate of roughly
+$3.5\%$ of months containing a negative spread somewhere on the curve, with
+essentially none away from the six-month point.
+
+\subsection{Magnitude of the failure}
+
+Table~\ref{tab:coherence} compares the violation rate under the current
+specification against two candidate remedies, all evaluated at the sixty-month
+horizon with $10{,}000$ paths, a BIC-selected VAR, and identical bootstrap
+shocks under a fixed seed.
+
+\begin{table}[htbp]
+\centering
+\caption{Probability that a simulated path contains a negative credit spread at
+month 60. Model A retains the spread factors in levels; Model B additionally
+reparameterises the spread curve as $\log(s + \delta)$ with $\delta = 0.5$.}
+\label{tab:coherence}
+\begin{tabular}{lrr}
+\toprule
+Specification & $P(\text{spread} < 0)$ & Excluding 0.5y \\
+\midrule
+Historical base rate                  & 3.52\%  & 0.00\% \\
+\midrule
+Current: all factors differenced      & 47.08\% & --- \\
+Model A: spread factors in levels     & 18.89\% & 14.86\% \\
+Model B: shifted-log spread, levels   & 4.21\%  & 2.05\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Under the current specification almost half of all scenarios are economically
+impossible. Retaining the spread factors in levels recovers their mean reversion
+and cuts the rate to $19\%$; adding the shifted-logarithm reparameterisation
+brings it to $4.2\%$, close to the historical $3.5\%$ and concentrated at the
+short end where history places it.
+
+\subsection{Tail behaviour under Gaussian and bootstrap innovations}
+
+The distributional finding of Section~\ref{sec:resid} has a measurable cost.
+Holding the fitted model fixed and varying only the innovation scheme, the
+five-year spread distribution at month 60 differs materially in the tail.
+
+\begin{table}[htbp]
+\centering
+\caption{Five-year credit spread at month 60 (percentage points), Gaussian
+innovations versus stationary block bootstrap of residual vectors.}
+\label{tab:tails}
+\begin{tabular}{lrrrr}
+\toprule
+Innovations & Mean & $p_{99}$ & $p_{99.9}$ & Maximum \\
+\midrule
+Gaussian                    & 0.55 & 5.55 & 7.17 & 8.37 \\
+Stationary block bootstrap  & 0.59 & 6.06 & 8.39 & 10.81 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The bootstrap produces a far tail roughly $17\%$ wider at the $99.9$th
+percentile. For a risk measure defined on the tail---conditional value at risk,
+say---this difference flows directly into the allocation.
+
+\section{Recommended algorithm}
+\label{sec:algo}
+
+We recommend a \emph{semiparametric VAR-bootstrap}: a parametric VAR capturing
+linear dynamics, combined with nonparametric resampling of its residuals. This
+is the approach that comparative work on curve scenario generation finds
+superior to purely nonparametric resampling where the dynamic model is
+adequately specified~\cite{scenariocomp}. Concretely:
+
+\begin{enumerate}
+  \item \textbf{Reparameterise the spread curve} as $\log(s_\tau + \delta)$ with
+    $\delta = 0.5$. The shift accommodates the genuine historical negatives at
+    the short end while the logarithm supplies the asymmetry that makes large
+    widenings more likely than large tightenings.
+
+  \item \textbf{Adopt a mixed integration order.} Difference the Treasury
+    factors, which are empirically $I(1)$; retain the transformed spread factors
+    in levels so that mean reversion is preserved. The state vector becomes
+    $\big(\Delta\text{TPC}_{1:3},\ \text{LPC}_{1:3}\big)$.
+
+  \item \textbf{Select lag order by BIC}, not AIC, giving a VAR(1). The AIC
+    specification buys no improvement in residual whiteness at more than seven
+    times the parameter count.
+
+  \item \textbf{Resample residual vectors by stationary
+    bootstrap}~\cite{politisromano} with geometric block lengths of mean six
+    months. Resampling whole rows preserves cross-factor dependence; resampling
+    in blocks preserves both the serial dependence that the whiteness test
+    detects and the volatility clustering that Engle's test finds in TPC2 and
+    SPC2, without committing to a parametric volatility model.
+
+  \item \textbf{Restore the PCA residual} when reconstructing curves, either by
+    carrying the last observed residual forward or by resampling it alongside
+    the factor shocks. Table~\ref{tab:recon} gives the cost of omitting it.
+
+  \item \textbf{Incorporate parameter uncertainty} once the above is in place,
+    by bias-corrected bootstrap-after-bootstrap~\cite{kilian}. At a sixty-month
+    horizon the sampling error in $\mathbf{A}$ is not negligible, and ignoring
+    it makes the predictive distribution too narrow---an error that biases
+    allocation toward excessive risk.
+\end{enumerate}
+
+\subsection{Alternatives considered and rejected}
+
+\begin{description}
+  \item[Gaussian innovations.] Rejected on the evidence of
+    Table~\ref{tab:diag}: kurtosis near $10$ and skewness of $1.17$ in the
+    dominant spread factor. Retained in the implementation only as a diagnostic
+    baseline.
+
+  \item[Filtered historical simulation.] Fitting GARCH models to each factor,
+    bootstrapping standardised residuals and reinflating by simulated volatility
+    is the industry-standard treatment for volatility
+    clustering~\cite{fhs}. Here it is not yet warranted: ARCH effects reach
+    significance in only two of six factors, and the block bootstrap addresses
+    them nonparametrically. This is the natural upgrade if the scenario set
+    later proves to understate clustered stress.
+
+  \item[Quasi-Monte Carlo.] Low-discrepancy sequences accelerate convergence for
+    smooth functionals but interact poorly with resampling-based innovations and
+    offer least benefit in the deep tail, which is where allocation decisions
+    are most sensitive.
+
+  \item[Markov-switching VAR.] Attractive in principle, since the sample spans
+    both a zero-interest-rate regime and a normal one. With $284$ monthly
+    observations the regime parameters are unlikely to be identified reliably.
+\end{description}
+
+\subsection{Implementation notes}
+
+Two practical constraints deserve recording.
+
+\emph{Memory.} Factor paths for $10{,}000$ scenarios over $60$ months occupy
+approximately $29$ MB. Materialising the corresponding full $200$-point curves
+would require about $1.0$ GB. Simulation should therefore retain factor paths and
+reconstruct curves only at the horizons actually required.
+
+\emph{Reproducibility.} All randomness should flow from a single explicitly
+threaded generator seeded once, rather than from global state, so that scenario
+sets are reproducible and so that competing allocation rules can be compared
+under common random numbers.
+
+\section{Connection to the allocation objective}
+
+The recommended scheme produces an equally weighted ensemble of paths. This
+composes directly with scenario-based conditional value-at-risk optimisation,
+which Rockafellar and Uryasev~\cite{rockafellar} showed can be expressed as a
+linear program over exactly such an ensemble, with the value at risk determined
+endogenously rather than supplied in advance. The pairing is convenient: no
+covariance matrix need be estimated, the fat tails established in
+Section~\ref{sec:resid} are carried through to the risk measure intact, and
+allocation constraints enter as linear side conditions.
+
+Should narrative macroeconomic scenarios later be assigned subjective
+probabilities, those weights must be carried explicitly and must not be mixed
+with the equally weighted Monte Carlo ensemble within a single statistic.
+
+\section{Limitations}
+
+Several caveats bound the above.
+
+\begin{itemize}
+  \item The diagnostics rest on a single realised path of history spanning
+    $2003$--$2026$. The sample contains two severe credit episodes, which
+    dominate the estimated tail of SPC1; a different sample window would give
+    materially different kurtosis.
+
+  \item ADF and KPSS disagree on the spread factors---ADF marginally rejects a
+    unit root for SPC1 while KPSS rejects stationarity. This is the
+    characteristic signature of a near-unit-root process, and the levels
+    specification is justified on economic grounds as much as statistical ones.
+
+  \item The shift parameter $\delta = 0.5$ is chosen to accommodate the observed
+    historical minimum with margin. It has not been estimated, and results
+    should be checked for sensitivity to it.
+
+  \item Negative simulated Treasury rates remain at roughly $7\%$ of paths under
+    every specification tested. United States nominal rates did not go negative
+    in this sample, so this is the next coherence gap to close, most naturally
+    by a shadow-rate floor.
+
+  \item No out-of-sample validation of the scenario set has been performed. A
+    rolling-origin backtest, in which the model is re-estimated using only data
+    available at each decision date, is a prerequisite before any allocation
+    conclusion is drawn---particularly because the principal components are
+    currently fitted on the full sample, which would constitute look-ahead in a
+    backtest.
+\end{itemize}
+
+\begin{thebibliography}{9}
+
+\bibitem{fhs}
+Barone-Adesi, G., Giannopoulos, K., and Vosper, L. (1999).
+\newblock VaR without correlations for portfolios of derivative securities.
+\newblock \emph{Journal of Futures Markets}, 19(5), 583--602.
+
+\bibitem{kilian}
+Kilian, L. (1998).
+\newblock Small-sample confidence intervals for impulse response functions.
+\newblock \emph{The Review of Economics and Statistics}, 80(2), 218--230.
+
+\bibitem{littermanscheinkman}
+Litterman, R. and Scheinkman, J. (1991).
+\newblock Common factors affecting bond returns.
+\newblock \emph{Journal of Fixed Income}, 1(1), 54--61.
+
+\bibitem{politisromano}
+Politis, D. N. and Romano, J. P. (1994).
+\newblock The stationary bootstrap.
+\newblock \emph{Journal of the American Statistical Association}, 89(428),
+  1303--1313.
+
+\bibitem{rockafellar}
+Rockafellar, R. T. and Uryasev, S. (2000).
+\newblock Optimization of conditional value-at-risk.
+\newblock \emph{Journal of Risk}, 2(3), 21--41.
+
+\bibitem{scenariocomp}
+Scenario generation for time series and curves: a comparison of nonparametric
+  and semiparametric bootstrap.
+\newblock arXiv preprint \texttt{arXiv:2606.11859}, 2026.
+\newblock \url{https://arxiv.org/abs/2606.11859}
+
+\end{thebibliography}
+
+\end{document}

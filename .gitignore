@@ -8,4 +8,7 @@ pixi.lock
 .DS_Store
 __pycache__/
 
-AGENTS.MD
+# agent context files
+AGENTS.md
+CLAUDE.md
+.claude/
