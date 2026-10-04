@@ -1,5 +1,5 @@
 [workspace]
-authors = ["Roberto"]
+authors = ["Rob"]
 channels = ["conda-forge"]
 name = "SBA"
 platforms = ["osx-arm64"]
