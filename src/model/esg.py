@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
+from enum import Enum
 
 import numpy as np
 import pandas as pd
 
 ModelT = TypeVar("ModelT")
+Severity = Enum("Severity", ["ERROR", "WARNING"])
 
 
 class ESG(ABC, Generic[ModelT]):
