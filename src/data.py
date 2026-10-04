@@ -1,16 +1,12 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.colors import Normalize
-from matplotlib.cm import ScalarMappable
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from statsmodels.tsa.stattools import adfuller
 from pathlib import Path
+
+import pandas as pd
+import numpy as np
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 OUT_DIR = Path(__file__).resolve().parent.parent / "out"
+
 MORTALITY_BASE_YEAR = 2012
-PLOT_DPI = 300
 
 
 # retiree mortalities
@@ -43,12 +39,48 @@ def loadImprovement() -> pd.DataFrame:
         .rename_axis(index="age", columns=["sex", "year"])
         .rename(columns=str.lower, level="sex")
         .rename(
-            columns=lambda year: (
-                int(year.removesuffix("+")) if isinstance(year, str) else year
-            ),
-            level="year",
+            columns=lambda year: 2037 if year == "2037+" else int(year), level="year"
         )
         .rename(index=lambda age: 20 if age == "≤ 20" else int(age))
+    )
+
+
+def loadSurvival() -> pd.DataFrame:
+    mortality = loadMortality()
+    improvement = loadImprovement().loc[
+        mortality.index, pd.IndexSlice[:, MORTALITY_BASE_YEAR + 1 :]
+    ]
+    mortality = pd.concat(
+        {
+            sex: pd.concat(
+                [
+                    mortality[sex].rename(MORTALITY_BASE_YEAR),
+                    1 - improvement[sex],
+                ],
+                axis=1,
+            ).cumprod(axis=1)
+            for sex in mortality
+        },
+        axis=1,
+        names=["sex", "year"],
+    )
+    return 1 - mortality
+
+
+def loadRetireeSurvival(sex: str, birth: int, start: int) -> pd.DataFrame:
+    df = (
+        loadSurvival()
+        .loc[start - birth :, pd.IndexSlice[sex, start:]]
+        .to_numpy()
+        .diagonal()
+    )
+    steps = np.arange(len(df) + 1)
+    return pd.DataFrame(
+        {
+            "year": start + steps,
+            "survival": np.r_[1.0, df].cumprod(),
+        },
+        index=pd.Index(start - birth + steps, name="age"),
     )
 
 
@@ -56,167 +88,59 @@ def loadCurve(pattern: str) -> pd.DataFrame:
     df = pd.concat(
         [
             pd.read_excel(file, index_col=0, header=[3, 4])
-            .dropna(axis=0, how="all")
+            .dropna(how="all")
             .dropna(axis=1, how="all")
             for file in DATA_DIR.glob(pattern)
         ],
         axis=1,
         verify_integrity=True,
     )
-
-    return (
-        df.set_axis(
-            pd.to_datetime(
-                [f"{y}-{m}" for y, m in df.columns],
-                format="%Y-%b",
-            ),
-            axis=1,
-        )
-        .T.rename_axis(index="date", columns="maturity")
-        .sort_index()
+    df.columns = pd.to_datetime(
+        [f"{year}-{month}" for year, month in df.columns], format="%Y-%b"
     )
+    return df.T.rename_axis(index="date", columns="maturity").sort_index()
 
 
-# Treasury spot curves
+# treasury spot curves
 # https://home.treasury.gov/data/treasury-coupon-issues-and-corporate-bond-yield-curves/treasury-coupon-issues
 def loadTreasury() -> pd.DataFrame:
     return loadCurve("tnc_treasury_spot_curve_*.xls*")
 
 
-# Corporate bond spot curves
+# corporate bond spot curves
 # https://home.treasury.gov/data/treasury-coupon-issues-and-corporate-bond-yield-curve/corporate-bond-yield-curve
 def loadCorporate() -> pd.DataFrame:
     return loadCurve("hqm_corporate_bond_spot_curve_*.xls*")
 
 
-def loadSurvival() -> pd.DataFrame:
-    mortality = loadMortality()
-    improvement = loadImprovement()
-    mortality = pd.concat(
-        {
-            sex: pd.concat(
-                [
-                    mortality[sex].rename(MORTALITY_BASE_YEAR),
-                    1
-                    - improvement[sex].loc[mortality.index, MORTALITY_BASE_YEAR + 1 :],
-                ],
-                axis=1,
-            ).cumprod(axis=1)
-            for sex in mortality.columns
-        },
-        axis=1,
-        names=["sex", "year"],
-    )
-    return (1 - mortality).shift(1, fill_value=1).cumprod()
+def loadSpread() -> pd.DataFrame:
+    treasury = loadTreasury()
+    corporate = loadCorporate()
+    return (corporate - treasury).dropna()
 
 
-def plotField(data: pd.DataFrame, title: str, field: str) -> tuple[Figure, list[Axes]]:
-    groups = data.columns.get_level_values(field).unique()
-    years = data.columns.get_level_values("year").unique().sort_values()
-    norm = Normalize(vmin=years.min(), vmax=years.max())
-    cmap = plt.get_cmap("winter")
-    fig, axes = plt.subplots(
-        1,
-        len(groups),
-        figsize=(12, 6),
-        sharey=True,
-        squeeze=False,
-        layout="constrained",
-    )
-    axes = axes.ravel().tolist()
-    for ax, group in zip(axes, groups):
-        data.xs(group, level=field, axis=1).loc[:, years].plot(
-            ax=ax,
-            color=cmap(norm(years)),
-            legend=False,
+# synthetic benefits
+# https://www.ssa.gov/policy/docs/microdata/bepuf-2020/index.html
+def loadPension() -> pd.DataFrame:
+    return (
+        pd.read_csv(
+            DATA_DIR / "BEPUF_2020_benefits.csv",
+            index_col="ID",
         )
-        ax.set_title(str(group).capitalize())
-    fig.suptitle(title)
-    fig.colorbar(
-        ScalarMappable(norm=norm, cmap=cmap),
-        ax=axes,
-        ticks=years[::5].union(years[-1:]),
+        .query("IP == 'R' and BT == 'A'")
+        .rename(columns=str.lower)
     )
-    return fig, axes
-
-
-def plot(
-    data: pd.DataFrame,
-    title: str,
-    xlabel: str,
-    ylabel: str,
-    filename: str,
-    field: str | None = None,
-    exportFormat: str = "png",
-) -> None:
-    if field is not None:
-        fig, axes = plotField(data, title, field)
-    else:
-        ax = data.plot(figsize=(10, 6), marker="o", linestyle="None")
-        ax.get_legend().set_title(None)
-        ax.set_title(title)
-        fig, axes = ax.figure, [ax]
-
-    for ax in axes:
-        ax.set_xlabel(xlabel)
-        ax.grid(alpha=0.3)
-    axes[0].set_ylabel(ylabel)
-    if field is None:
-        fig.tight_layout()
-    OUT_DIR.mkdir(exist_ok=True)
-    fig.savefig(
-        (OUT_DIR / filename).with_suffix(f".{exportFormat}"),
-        format=exportFormat,
-        dpi=PLOT_DPI,
-        bbox_inches="tight",
-    )
-
-
-def exportLatex(
-    vector: pd.Series | pd.DataFrame,
-    filename: str,
-    rowCount: int = 3,
-    columnCount: int = 3,
-) -> None:
-    matrix = vector.to_frame() if isinstance(vector, pd.Series) else vector
-    rowIndices, columnIndices = [
-        (
-            list(range(size))
-            if size <= 2 * count
-            else list(range(size)[:count]) + [None] + list(range(size)[size - count :])
-        )
-        for size, count in zip(matrix.shape, (rowCount, columnCount))
-    ]
-    entries = (
-        " & ".join(
-            (
-                (r"\ddots" if columnIndex is None else r"\vdots")
-                if rowIndex is None
-                else (
-                    r"\cdots"
-                    if columnIndex is None
-                    else f"{matrix.iloc[rowIndex, columnIndex]:.2f}"
-                )
-            )
-            for columnIndex in columnIndices
-        )
-        for rowIndex in rowIndices
-    )
-    OUT_DIR.mkdir(exist_ok=True)
-    (OUT_DIR / filename).write_text(
-        "$$\n\\begin{vmatrix}\n" + " \\\\\n".join(entries) + "\n\\end{vmatrix}\n$$\n",
-        encoding="utf-8",
-    )
-
-
-def adfTest(data: pd.DataFrame) -> pd.Series:
-    return data.apply(
-        lambda col: adfuller(col.dropna(), result_object=True).pvalue
-    ).rename("pvalue")
 
 
 if __name__ == "__main__":
-    # print(loadMortality())
-    # print(loadImprovement())
-    # print(loadSurvival())
-    print(loadCorporate())
+    survival = loadSurvival()
+    treasury = loadTreasury()
+    spread = loadSpread()
+    pension = loadPension()
+    retireeSurvival = loadRetireeSurvival("female", 1955, 2022)
+    print(survival)
+    print(treasury)
+    print(spread)
+    print(pension)
+    print(f'${pension["mbc"].sum():,.2f}')
+    print(retireeSurvival)
