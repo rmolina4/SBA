@@ -36,5 +36,5 @@ sLoading = pd.DataFrame(
 cScore = pd.concat([tScore, sScore], axis=1).asfreq("MS").dropna()
 cScoreDiff = cScore.diff().dropna()
 
-esgCScore = ESGVar(VAR(cScore).fit(maxlags=24, ic="aic", trend="c"))
-esgCScoreDiff = ESGVar(VAR(cScoreDiff).fit(maxlags=24, ic="aic", trend="c"))  # type: ignore
+esgCScore = ESGVar(VAR(cScore).fit(maxlags=24, ic="aic", trend="c"), "Scores")
+esgCScoreDiff = ESGVar(VAR(cScoreDiff).fit(maxlags=24, ic="aic", trend="c"), "Differenced Scores")  # type: ignore
