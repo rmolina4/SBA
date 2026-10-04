@@ -6,6 +6,8 @@ from model.var import ESGVar
 
 import pandas as pd
 
+MAX_LAGS = 24
+
 treasury = loadTreasury()
 spread = loadSpread()
 
@@ -36,5 +38,7 @@ sLoading = pd.DataFrame(
 cScore = pd.concat([tScore, sScore], axis=1).asfreq("MS").dropna()
 cScoreDiff = cScore.diff().dropna()
 
-esgCScore = ESGVar(VAR(cScore).fit(maxlags=24, ic="aic", trend="c"), "Scores")
-esgCScoreDiff = ESGVar(VAR(cScoreDiff).fit(maxlags=24, ic="aic", trend="c"), "Differenced Scores")  # type: ignore
+esgCScore = ESGVar(
+    VAR(cScore).fit(maxlags=MAX_LAGS, ic="aic", trend="c"), "Regular Scores"
+)
+esgCScoreDiff = ESGVar(VAR(cScoreDiff).fit(maxlags=MAX_LAGS, ic="aic", trend="c"), "Differenced Scores")  # type: ignore

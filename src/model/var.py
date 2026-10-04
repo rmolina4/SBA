@@ -1,5 +1,8 @@
 from collections.abc import Callable
 from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
+from statsmodels.tsa.stattools import (
+    adfuller,  # pyright: ignore[reportUnknownVariableType]
+)
 
 from .esg import ESG, Severity
 
@@ -8,6 +11,17 @@ import pandas as pd
 import warnings
 
 SIGNIFICANCE_LEVEL = 0.05
+NLAGS = 24
+
+
+def adfTest(a: np.ndarray) -> bool:
+    for j in range(a.shape[1]):
+        if (
+            adfuller(a[:, j], autolag="AIC", result_object=True)[1]
+            >= SIGNIFICANCE_LEVEL
+        ):
+            return True
+    return False
 
 
 class ESGVar(ESG[VARResultsWrapper]):
@@ -17,10 +31,12 @@ class ESGVar(ESG[VARResultsWrapper]):
         rules: list[tuple[Callable[[VARResultsWrapper], bool], Severity, str]] = [
             (lambda m: m.k_ar == 0, Severity.ERROR, "VAR has no lags"),
             (lambda m: not m.is_stable(), Severity.ERROR, "VAR is unstable"),
+            (lambda m: adfTest(m.endog), Severity.WARNING, "Failed ADF Test"),
             (
                 lambda m: m.test_whiteness(
-                    nlags=max(24, m.k_ar + 1), signif=SIGNIFICANCE_LEVEL
-                ).pvalue < SIGNIFICANCE_LEVEL,
+                    nlags=max(NLAGS, m.k_ar + 1), signif=SIGNIFICANCE_LEVEL
+                ).pvalue
+                < SIGNIFICANCE_LEVEL,
                 Severity.WARNING,
                 "Failed Whiteness Test",
             ),
