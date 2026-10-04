@@ -10,16 +10,14 @@ import numpy as np
 import pandas as pd
 import warnings
 
-SIGNIFICANCE_LEVEL = 0.05
+SIGNIF = 0.05
 NLAGS = 24
 
 
+# null: unit root, assumes data is non-stationary
 def adfTest(a: np.ndarray) -> bool:
     for j in range(a.shape[1]):
-        if (
-            adfuller(a[:, j], autolag="AIC", result_object=True)[1]
-            >= SIGNIFICANCE_LEVEL
-        ):
+        if adfuller(a[:, j], autolag="AIC", result_object=True)[1] >= SIGNIF:
             return True
     return False
 
@@ -31,12 +29,18 @@ class ESGVar(ESG[VARResultsWrapper]):
         rules: list[tuple[Callable[[VARResultsWrapper], bool], Severity, str]] = [
             (lambda m: m.k_ar == 0, Severity.ERROR, "VAR has no lags"),
             (lambda m: not m.is_stable(), Severity.ERROR, "VAR is unstable"),
-            (lambda m: adfTest(m.endog), Severity.WARNING, "Failed ADF Test"),
+            (lambda m: adfTest(m.endog), Severity.WARNING, "Failed ADF test"),
+            (
+                lambda m: m.test_normality(SIGNIF).conclusion
+                == "reject",  # null: guassian errors
+                Severity.WARNING,
+                "Failed normality test",
+            ),
             (
                 lambda m: m.test_whiteness(
-                    nlags=max(NLAGS, m.k_ar + 1), signif=SIGNIFICANCE_LEVEL
-                ).pvalue
-                < SIGNIFICANCE_LEVEL,
+                    nlags=max(NLAGS, m.k_ar + 1), signif=SIGNIF
+                ).conclusion
+                == "reject",  # null: no residual autocorrelation
                 Severity.WARNING,
                 "Failed Whiteness Test",
             ),
