@@ -41,7 +41,7 @@ RULES: tuple[Rule, ...] = (
         "Whiteness: evidence of residual autocorrelation",
     ),
     (
-        lambda m: archTest(m.resid),
+        lambda m: archTest(m.resid.to_numpy()),
         Severity.WARNING,
         "ARCH: evidence of conditional heteroscedasticity in at least one residual series",
     ),
