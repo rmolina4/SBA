@@ -10,11 +10,10 @@ Severity = Enum("Severity", ["ERROR", "WARNING"])
 
 
 class ESG(ABC, Generic[ModelT]):
-    __slots__ = ("model", "name")
+    __slots__ = "model"
 
-    def __init__(self, model: ModelT, name: str, check: bool = True) -> None:
+    def __init__(self, model: ModelT, check: bool = True) -> None:
         object.__setattr__(self, "model", model)
-        object.__setattr__(self, "name", name)
         self.validate() if check else None
 
     def __setattr__(self, name: str, value: object) -> None:

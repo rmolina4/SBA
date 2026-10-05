@@ -5,6 +5,7 @@ from data import loadTreasury, loadSpread
 from model.var import ESGVar
 
 import pandas as pd
+import warnings
 
 MAX_LAGS = 24
 
@@ -38,7 +39,21 @@ sLoading = pd.DataFrame(
 cScore = pd.concat([tScore, sScore], axis=1).asfreq("MS").dropna()
 cScoreDiff = cScore.diff().dropna()
 
-esgCScore = ESGVar(
-    VAR(cScore).fit(maxlags=MAX_LAGS, ic="aic", trend="c"), "Regular Scores"
-)
-esgCScoreDiff = ESGVar(VAR(cScoreDiff).fit(maxlags=MAX_LAGS, ic="aic", trend="c"), "Differenced Scores")  # type: ignore
+esgWarnings1: list[warnings.WarningMessage] = []
+esgWarnings2: list[warnings.WarningMessage] = []
+
+with warnings.catch_warnings(record=True) as esgWarnings1:
+    warnings.simplefilter("always")
+    esg1 = ESGVar(VAR(cScore).fit(maxlags=MAX_LAGS, ic="aic", trend="c"))
+
+with warnings.catch_warnings(record=True) as esgWarnings2:
+    warnings.simplefilter("always")
+    esg2 = ESGVar(VAR(cScoreDiff).fit(maxlags=MAX_LAGS, ic="aic", trend="c"))
+
+print("ESG using scores:")
+for warning in esgWarnings1:
+    print(f"\t{warning.message}")
+
+print("\nESG using differenced scores:")
+for warning in esgWarnings2:
+    print(f"\t{warning.message}")
