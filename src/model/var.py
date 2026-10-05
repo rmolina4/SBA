@@ -1,51 +1,60 @@
 from collections.abc import Callable
 from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
-from statsmodels.tsa.stattools import (
-    adfuller,  # pyright: ignore[reportUnknownVariableType]
-)
 
 from .esg import ESG, Severity
+from .diagnostic import *
 
 import numpy as np
 import pandas as pd
 import warnings
 
-SIGNIF = 0.05
+Rule = tuple[Callable[[VARResultsWrapper], bool], Severity, str]
+RULES: tuple[Rule, ...] = (
+    (lambda m: m.k_ar == 0, Severity.ERROR, "VAR has no lags"),
+    (lambda m: not m.is_stable(), Severity.ERROR, "VAR is unstable"),
+    (
+        lambda m: adfTest(m.endog),
+        Severity.WARNING,
+        "ADF: could not reject a unit root in at least one factor",
+    ),
+    (
+        lambda m: kpssTest(m.endog),
+        Severity.WARNING,
+        "KPSS: rejected level stationarity in at least one factor",
+    ),
+    (
+        lambda m: johansenTest(m.endog, m.k_ar),
+        Severity.WARNING,
+        "Johansen: no cointegrating relationship detected",
+    ),
+    (
+        lambda m: m.test_normality(SIGNIF).conclusion == "reject",
+        Severity.WARNING,
+        "Normality: evidence against Gaussian residuals",
+    ),
+    (
+        lambda m: m.test_whiteness(
+            nlags=max(NLAGS, m.k_ar + 1), signif=SIGNIF
+        ).conclusion
+        == "reject",
+        Severity.WARNING,
+        "Whiteness: evidence of residual autocorrelation",
+    ),
+    (
+        lambda m: archTest(m.resid),
+        Severity.WARNING,
+        "ARCH: evidence of conditional heteroscedasticity in at least one residual series",
+    ),
+)
+
 NLAGS = 24
-
-
-# null: unit root, assumes data is non-stationary
-def adfTest(a: np.ndarray) -> bool:
-    for j in range(a.shape[1]):
-        if adfuller(a[:, j], autolag="AIC", result_object=True)[1] >= SIGNIF:
-            return True
-    return False
 
 
 class ESGVar(ESG[VARResultsWrapper]):
     __slots__ = ()
 
     def validate(self) -> None:
-        rules: list[tuple[Callable[[VARResultsWrapper], bool], Severity, str]] = [
-            (lambda m: m.k_ar == 0, Severity.ERROR, "VAR has no lags"),
-            (lambda m: not m.is_stable(), Severity.ERROR, "VAR is unstable"),
-            (lambda m: adfTest(m.endog), Severity.WARNING, "Failed ADF test"),
-            (
-                lambda m: m.test_normality(SIGNIF).conclusion
-                == "reject",  # null: guassian errors
-                Severity.WARNING,
-                "Failed normality test",
-            ),
-            (
-                lambda m: m.test_whiteness(
-                    nlags=max(NLAGS, m.k_ar + 1), signif=SIGNIF
-                ).conclusion
-                == "reject",  # null: no residual autocorrelation
-                Severity.WARNING,
-                "Failed Whiteness Test",
-            ),
-        ]
-        for condition, severity, message in rules:
+        for condition, severity, message in RULES:
             if condition(self.model):
                 if severity is Severity.ERROR:
                     raise ValueError(f"{self.name}: {message}")
