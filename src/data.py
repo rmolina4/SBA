@@ -4,8 +4,6 @@ import pandas as pd
 import numpy as np
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-OUT_DIR = Path(__file__).resolve().parent.parent / "out"
-
 MORTALITY_BASE_YEAR = 2012
 
 

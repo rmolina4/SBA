@@ -3,6 +3,7 @@ from sklearn.decomposition import PCA
 
 from data import loadTreasury, loadSpread
 from model.var import ESGVar
+from util import plot
 
 import pandas as pd
 import warnings
@@ -57,3 +58,10 @@ for warning in esgWarnings1:
 print("\nESG using differenced scores:")
 for warning in esgWarnings2:
     print(f"\t{warning.message}")
+
+elements: tuple[tuple[pd.DataFrame, str, str], ...] = (
+    (cScore, "cScore", "cScore"),
+)
+
+for e in elements:
+    plot(*e)

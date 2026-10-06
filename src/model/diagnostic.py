@@ -8,6 +8,7 @@ from statsmodels.tsa.stattools import (
     adfuller,  # pyright: ignore[reportUnknownVariableType]
     kpss,  # pyright: ignore[reportUnknownVariableType]
 )
+
 import numpy as np
 
 SIGNIF = 0.05
