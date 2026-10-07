@@ -16,12 +16,12 @@ RULES: tuple[Rule, ...] = (
     (
         lambda m: adfTest(m.endog),
         Severity.WARNING,
-        "ADF - could not reject a unit root in at least one maturity",
+        "ADF - could not reject a unit root in at least one factor",
     ),
     (
         lambda m: kpssTest(m.endog),
         Severity.WARNING,
-        "KPSS - rejected level stationarity in at least one maturity",
+        "KPSS - rejected level stationarity in at least one factor",
     ),
     (
         lambda m: johansenTest(m.endog, m.k_ar),

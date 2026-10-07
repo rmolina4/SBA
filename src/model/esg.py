@@ -30,11 +30,11 @@ class ESG(ABC, Generic[ModelT]):
 
     def generateForecast(
         self,
-        df: pd.DataFrame,
         horizon: int = 60,
         seed: int = 0,
     ) -> pd.DataFrame:
         rng = np.random.default_rng(seed)
+        df = pd.DataFrame()
         for it in range(horizon):
             self.step(df, it, rng)
-        return pd.DataFrame()
+        return df
