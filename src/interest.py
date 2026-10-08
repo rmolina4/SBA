@@ -82,11 +82,15 @@ elements: tuple[Element, ...] = (
         "10-Year Interest Rates",
         "10year",
     ),
-    (cScore, "Zero-Coupon Treasury and Credit Spread PCA Scores", "cScore"),
-    (cLoading, "Zero-Coupon Treasury and Credit Spread PCA Loadings", "cLoading"),
+    (cScore, "Zero-Coupon Treasury Yield and Credit Spread Curve PCA Scores", "cScore"),
+    (
+        cLoading,
+        "Zero-Coupon Treasury Yield and Credit Spread Curve PCA Loadings",
+        "cLoading",
+    ),
     (
         cScoreDiff,
-        "Zero-Coupon Treasury and Credit Spread PCA Score Differences",
+        "Zero-Coupon Treasury Yield and Credit Spread Curve PCA Score Differences",
         "cScoreDiff",
     ),
 )
