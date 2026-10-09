@@ -43,16 +43,15 @@ wScore: list[warnings.WarningMessage] = []
 with warnings.catch_warnings(record=True) as wScore:
     warnings.simplefilter("always")
     ESGVar(VAR(cScore).fit(maxlags=MAX_LAGS, ic="aic", trend="c"))
+print("ESG using scores:")
+for w in wScore:
+    print(f"\t{w.message}")
 
 cScoreDiff = cScore.diff().dropna()
 wScoreDiff: list[warnings.WarningMessage] = []
 with warnings.catch_warnings(record=True) as wScoreDiff:
     warnings.simplefilter("always")
     ESGVar(VAR(cScoreDiff).fit(maxlags=MAX_LAGS, ic="aic", trend="c"))
-
-print("ESG using scores:")
-for w in wScore:
-    print(f"\t{w.message}")
 print("\nESG using differenced scores:")
 for w in wScoreDiff:
     print(f"\t{w.message}")
@@ -82,15 +81,15 @@ elements: tuple[Element, ...] = (
         "10-Year Interest Rates",
         "10year",
     ),
-    (cScore, "Zero-Coupon Treasury Yield and Credit Spread Curve PCA Scores", "cScore"),
+    (cScore, "Zero-Coupon Treasury Yield and Credit Spread PCA Scores", "cScore"),
     (
         cLoading,
-        "Zero-Coupon Treasury Yield and Credit Spread Curve PCA Loadings",
+        "Zero-Coupon Treasury Yield and Credit Spread PCA Loadings",
         "cLoading",
     ),
     (
         cScoreDiff,
-        "Zero-Coupon Treasury Yield and Credit Spread Curve PCA Score Differences",
+        "Zero-Coupon Treasury Yield and Credit Spread PCA Score Differences",
         "cScoreDiff",
     ),
 )
