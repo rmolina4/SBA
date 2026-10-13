@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import warnings
 
-Rule = tuple[Callable[[VARResultsWrapper], bool], Severity, str]
+Rule = tuple[Callable[[VARResultsWrapper], bool | tuple[int, ...]], Severity, str]
 NLAGS = 24
 RULES: tuple[Rule, ...] = (
     (lambda m: m.k_ar == 0, Severity.ERROR, "VAR has no lags"),
@@ -22,11 +22,6 @@ RULES: tuple[Rule, ...] = (
         lambda m: kpssTest(m.endog),
         Severity.WARNING,
         "KPSS - rejected level stationarity in at least one factor",
-    ),
-    (
-        lambda m: johansenTest(m.endog, m.k_ar),
-        Severity.WARNING,
-        "Johansen - no cointegrating relationship detected",
     ),
     (
         lambda m: m.test_normality(SIGNIF).conclusion == "reject",
@@ -54,7 +49,10 @@ class ESGVar(ESG[VARResultsWrapper]):
 
     def validate(self) -> None:
         for condition, severity, message in RULES:
-            if condition(self.model):
+            result = condition(self.model)
+            if result:
+                if isinstance(result, tuple):
+                    message = f"{message}; Failing columns - {result}"
                 if severity is Severity.ERROR:
                     raise ValueError(message)
                 warnings.warn(message)
