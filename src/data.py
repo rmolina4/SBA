@@ -5,6 +5,7 @@ import numpy as np
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 MORTALITY_BASE_YEAR = 2012
+MAX_MATURITY = 30
 
 
 # retiree mortalities
@@ -96,7 +97,11 @@ def loadCurve(pattern: str) -> pd.DataFrame:
     df.columns = pd.to_datetime(
         [f"{year}-{month}" for year, month in df.columns], format="%Y-%b"
     )
-    return df.T.rename_axis(index="date", columns="maturity").sort_index()
+    return (
+        df.T.rename_axis(index="date", columns="maturity")
+        .sort_index()
+        .loc[:, :MAX_MATURITY]
+    )
 
 
 # treasury spot curves

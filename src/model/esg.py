@@ -26,7 +26,12 @@ class ESG(ABC, Generic[ModelT]):
     def validate(self) -> None: ...
 
     @abstractmethod
-    def step(self, df: pd.DataFrame, it: int, rng: np.random.Generator) -> None: ...
+    def initHistory(self) -> pd.DataFrame: ...
+
+    @abstractmethod
+    def step(
+        self, history: pd.DataFrame, it: int, rng: np.random.Generator
+    ) -> pd.Series: ...
 
     def generateForecast(
         self,
@@ -34,7 +39,7 @@ class ESG(ABC, Generic[ModelT]):
         seed: int = 0,
     ) -> pd.DataFrame:
         rng = np.random.default_rng(seed)
-        df = pd.DataFrame()
+        history = self.initHistory()
         for it in range(horizon):
-            self.step(df, it, rng)
-        return df
+            self.step(history, it, rng)
+        return history

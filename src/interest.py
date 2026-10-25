@@ -39,22 +39,15 @@ sLoading = pd.DataFrame(
 cScore = pd.concat([tScore, sScore], axis=1).asfreq("MS").dropna()
 cLoading = pd.concat([tLoading, sLoading], axis=1)
 
-wScore: list[warnings.WarningMessage] = []
-with warnings.catch_warnings(record=True) as wScore:
-    warnings.simplefilter("always")
-    ESGVar(VAR(cScore).fit(maxlags=MAX_LAGS, ic="aic", trend="c"))
-print("ESG using scores:")
-for w in wScore:
-    print(f"\t{w.message}")
-
 cScoreDiff = cScore.diff().dropna()
 wScoreDiff: list[warnings.WarningMessage] = []
 with warnings.catch_warnings(record=True) as wScoreDiff:
     warnings.simplefilter("always")
-    ESGVar(VAR(cScoreDiff).fit(maxlags=MAX_LAGS, ic="aic", trend="c"))
+    model = ESGVar(VAR(cScoreDiff).fit(maxlags=MAX_LAGS, ic="aic", trend="c"))
 print("\nESG using differenced scores:")
 for w in wScoreDiff:
     print(f"\t{w.message}")
+model.generateForecast()
 
 elements: tuple[Element, ...] = (
     (

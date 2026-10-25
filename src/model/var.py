@@ -57,5 +57,12 @@ class ESGVar(ESG[VARResultsWrapper]):
                     raise ValueError(message)
                 warnings.warn(message)
 
-    def step(self, df: pd.DataFrame, it: int, rng: np.random.Generator) -> None:
-        raise NotImplementedError("Not implemented yet.")
+    def initHistory(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            self.model.endog[-self.model.k_ar :],
+            columns=self.model.names,
+            index=self.model.model.data.row_labels[-self.model.k_ar :],
+        )
+
+    def step(self, history: pd.DataFrame, it: int, rng: np.random.Generator) -> pd.Series:
+        raise NotImplementedError()
