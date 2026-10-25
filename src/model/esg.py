@@ -29,17 +29,28 @@ class ESG(ABC, Generic[ModelT]):
     def initHistory(self) -> pd.DataFrame: ...
 
     @abstractmethod
-    def step(
-        self, history: pd.DataFrame, it: int, rng: np.random.Generator
-    ) -> pd.Series: ...
+    def step(self, history: pd.DataFrame, rng: np.random.Generator) -> pd.Series: ...
 
     def generateForecast(
         self,
         horizon: int = 60,
+        scenario: int = 10000,
         seed: int = 0,
     ) -> pd.DataFrame:
+        if horizon < 1 or scenario < 1:
+            raise ValueError("horizon and scenario must be positive")
+
         rng = np.random.default_rng(seed)
-        history = self.initHistory()
-        for it in range(horizon):
-            self.step(history, it, rng)
-        return history
+        init = self.initHistory()
+        scenarios: list[pd.DataFrame] = []
+        for _ in range(scenario):
+            history = init.copy()
+            for _ in range(horizon):
+                row = self.step(history, rng)
+                history.loc[row.name] = row
+            scenarios.append(history.iloc[len(init) :])
+        return pd.concat(
+            scenarios,
+            keys=range(scenario),
+            names=["scenario", "date"],
+        )

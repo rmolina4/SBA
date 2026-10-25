@@ -47,7 +47,7 @@ with warnings.catch_warnings(record=True) as wScoreDiff:
 print("\nESG using differenced scores:")
 for w in wScoreDiff:
     print(f"\t{w.message}")
-model.generateForecast()
+forecast = model.generateForecast()
 
 elements: tuple[Element, ...] = (
     (

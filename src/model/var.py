@@ -11,6 +11,11 @@ import warnings
 Rule = tuple[Callable[[VARResultsWrapper], bool | tuple[int, ...]], Severity, str]
 NLAGS = 24
 RULES: tuple[Rule, ...] = (
+    (
+        lambda m: m.model.data.dates is None or m.model.data.dates.freq is None,
+        Severity.ERROR,
+        "VAR requires dated observations with a regular frequency.",
+    ),
     (lambda m: m.k_ar == 0, Severity.ERROR, "VAR has no lags"),
     (lambda m: not m.is_stable(), Severity.ERROR, "VAR is unstable"),
     (
@@ -64,5 +69,18 @@ class ESGVar(ESG[VARResultsWrapper]):
             index=self.model.model.data.row_labels[-self.model.k_ar :],
         )
 
-    def step(self, history: pd.DataFrame, it: int, rng: np.random.Generator) -> pd.Series:
-        raise NotImplementedError()
+    def step(self, history: pd.DataFrame, rng: np.random.Generator) -> pd.Series:
+        mean = self.model.forecast(
+            history.iloc[-self.model.k_ar :].to_numpy(),
+            steps=1,
+        )[0]
+        shock = rng.multivariate_normal(
+            np.zeros(self.model.neqs),
+            self.model.sigma_u,
+            check_valid="raise",
+        )
+        return pd.Series(
+            mean + shock,
+            index=self.model.names,
+            name=history.index[-1] + self.model.model.data.dates.freq,
+        )

@@ -67,19 +67,22 @@ def loadSurvival() -> pd.DataFrame:
 
 
 def loadRetireeSurvival(sex: str, birth: int, start: int) -> pd.DataFrame:
-    df = (
-        loadSurvival()
-        .loc[start - birth :, pd.IndexSlice[sex, start:]]
-        .to_numpy()
-        .diagonal()
-    )
+    survival = loadSurvival()[sex]
+    age = start - birth
+
+    if start not in survival.columns:
+        raise ValueError(f"No survival data for starting year {start}")
+    if age not in survival.index:
+        raise ValueError(f"No survival data for starting age {age}")
+
+    df = survival.loc[age:, start:].to_numpy().diagonal()
     steps = np.arange(len(df) + 1)
     return pd.DataFrame(
         {
             "year": start + steps,
             "survival": np.r_[1.0, df].cumprod(),
         },
-        index=pd.Index(start - birth + steps, name="age"),
+        index=pd.Index(age + steps, name="age"),
     )
 
 
