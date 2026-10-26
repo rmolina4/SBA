@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 import numpy as np
@@ -66,7 +67,9 @@ def loadSurvival() -> pd.DataFrame:
     return 1 - mortality
 
 
-def loadRetireeSurvival(sex: str, birth: int, start: int) -> pd.DataFrame:
+def loadRetireeSurvival(
+    sex: Literal["female", "male"], birth: int, start: int
+) -> pd.DataFrame:
     survival = loadSurvival()[sex]
     age = start - birth
 
