@@ -58,16 +58,15 @@ print("\nESG using differenced scores:")
 for w in wScoreDiff:
     print(f"\t{w.message}")
 
-forecast = model.generateForecast()
-forecastLevels = forecast.groupby(level="scenario").cumsum() + cScore.iloc[-1]
+forecast = model.generateForecast().groupby(level="scenario").cumsum() + cScore.iloc[-1]
 tForecast = pd.DataFrame(
-    tPCA.inverse_transform(forecastLevels[tScore.columns]),
-    index=forecastLevels.index,
+    tPCA.inverse_transform(forecast[tScore.columns]),
+    index=forecast.index,
     columns=treasury.columns,
 )
 sForecast = pd.DataFrame(
-    sPCA.inverse_transform(forecastLevels[sScore.columns]),
-    index=forecastLevels.index,
+    sPCA.inverse_transform(forecast[sScore.columns]),
+    index=forecast.index,
     columns=spread.columns,
 )
 cForecast = tForecast + sForecast
