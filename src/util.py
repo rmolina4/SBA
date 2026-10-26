@@ -52,10 +52,10 @@ def plot(
                     "legend": False,
                 }
         if history is not None and style is Style.PATHS:
-            anchor = pd.DataFrame(
+            start = pd.DataFrame(
                 history.iloc[-1], index=history.index[-1:], columns=df.columns
             )
-            df = pd.concat([anchor, df])
+            df = pd.concat([start, df])
         df.plot(ax=ax, title=panelTitle, **options)
         if history is not None:
             history.plot(ax=ax, color=f"C{i}", linewidth=0.5)
