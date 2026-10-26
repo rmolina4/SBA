@@ -7,7 +7,7 @@ from sklearn.decomposition import PCA
 
 from data import loadTreasury, loadSpread
 from model.var import ESGVar
-from util import Panels, Style, plot
+from util import Panel, Panels, Style, plot
 
 import pandas as pd
 import warnings
@@ -25,7 +25,7 @@ class Element(NamedTuple):
 
 def forecastInterest(
     treasury: pd.DataFrame, spread: pd.DataFrame, horizon: int = 60
-) -> tuple[pd.DataFrame, ...]:
+) -> tuple[*tuple[pd.DataFrame, ...], int]:
     tPCA = PCA(3)
     tScore = pd.DataFrame(
         tPCA.fit_transform(treasury),
@@ -89,19 +89,47 @@ def forecastInterest(
         columns=spread.columns,
     )
     cMean = tMean + sMean
-    return cScore, cScoreDiff, cLoading, tForecast, cForecast, tMean, cMean
+    return (
+        cScore,
+        cScoreDiff,
+        cLoading,
+        tForecast,
+        cForecast,
+        tMean,
+        cMean,
+        int(model.model.k_ar),
+    )
 
 
 treasury = loadTreasury()
 spread = loadSpread()
-cScore, cScoreDiff, cLoading, tForecast, cForecast, tMean, cMean = forecastInterest(
+(
+    cScore,
+    cScoreDiff,
+    cLoading,
+    tForecast,
+    cForecast,
+    tMean,
+    cMean,
+    k_ar,
+) = forecastInterest(
     treasury.iloc[:-BACKTEST_MONTHS],
     spread.iloc[:-BACKTEST_MONTHS],
     BACKTEST_MONTHS,
 )
-cScore, cScoreDiff, cLoading, tForecast, cForecast, tMean, cMean = forecastInterest(
-    treasury, spread
-)
+(
+    cScore,
+    cScoreDiff,
+    cLoading,
+    tForecast,
+    cForecast,
+    tMean,
+    cMean,
+    k_ar,
+) = forecastInterest(treasury, spread)
+dates = cScore.index[-k_ar:]
+tHistory = treasury.loc[dates]
+cHistory = tHistory + spread.loc[dates]
 
 elements: tuple[Element, ...] = (
     Element(
@@ -145,8 +173,18 @@ elements: tuple[Element, ...] = (
     ),
     Element(
         (
-            (tForecast[10.0].unstack("scenario"), "Treasury", Style.PATHS),
-            (cForecast[10.0].unstack("scenario"), "Corporate", Style.PATHS),
+            Panel(
+                tForecast[10.0].unstack("scenario"),
+                "Treasury",
+                Style.PATHS,
+                tHistory[10.0],
+            ),
+            Panel(
+                cForecast[10.0].unstack("scenario"),
+                "Corporate",
+                Style.PATHS,
+                cHistory[10.0],
+            ),
         ),
         "10_year_interest_rate_paths",
         "10-Year Spot Rate Forecast",

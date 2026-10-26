@@ -1,13 +1,21 @@
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import pandas as pd
 import matplotlib.pyplot as plt
 
 OUT_DIR = Path(__file__).resolve().parent.parent / "out"
 Style = Enum("Style", ["NORMAL", "PATHS"])
-type Panel = tuple[pd.DataFrame, str, Style]
+
+
+class Panel(NamedTuple):
+    data: pd.DataFrame
+    title: str
+    style: Style
+    history: pd.Series | None = None
+
+
 type Panels = tuple[Panel, *tuple[Panel, ...]]
 
 
@@ -17,7 +25,7 @@ def plot(
     title: str,
 ) -> None:
     if isinstance(data, pd.DataFrame):
-        panels = ((data, title, Style.NORMAL),)
+        panels = (Panel(data, title, Style.NORMAL),)
     else:
         panels = data
 
@@ -28,7 +36,7 @@ def plot(
     if not isinstance(data, pd.DataFrame):
         fig.suptitle(title)
 
-    for i, (ax, (df, panelTitle, style)) in enumerate(zip(axes[0], panels)):
+    for i, (ax, (df, panelTitle, style, history)) in enumerate(zip(axes[0], panels)):
         options: dict[str, Any]
         match style:
             case Style.NORMAL:
@@ -40,10 +48,17 @@ def plot(
                 options = {
                     "color": f"C{i}",
                     "linewidth": 0.5,
-                    "alpha": 0.02,
+                    "alpha": len(df.columns) ** -0.5,
                     "legend": False,
                 }
+        if history is not None and style is Style.PATHS:
+            anchor = pd.DataFrame(
+                history.iloc[-1], index=history.index[-1:], columns=df.columns
+            )
+            df = pd.concat([anchor, df])
         df.plot(ax=ax, title=panelTitle, **options)
+        if history is not None:
+            history.plot(ax=ax, color=f"C{i}", linewidth=0.5)
 
     fig.tight_layout()
     fig.savefig(str(OUT_DIR / f"{fileName}.png"), dpi=200)
