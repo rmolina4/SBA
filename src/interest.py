@@ -13,7 +13,7 @@ import pandas as pd
 import warnings
 
 MAX_LAGS = 24
-BACKTEST_MONTHS = 12
+BACKTEST_MONTHS = 36
 WARNINGS = True
 
 
@@ -25,7 +25,7 @@ class Element(NamedTuple):
 
 def forecastInterest(
     treasury: pd.DataFrame, spread: pd.DataFrame, horizon: int = 60
-) -> tuple[*tuple[pd.DataFrame, ...], int]:
+) -> tuple[pd.DataFrame, ...]:
     tPCA = PCA(3)
     tScore = pd.DataFrame(
         tPCA.fit_transform(treasury),
@@ -66,7 +66,6 @@ def forecastInterest(
         model.generateForecast(horizon).groupby(level="scenario").cumsum()
         + cScore.iloc[-1]
     )
-    mean = model.forecastMean(horizon).cumsum() + cScore.iloc[-1]
     tForecast = pd.DataFrame(
         tPCA.inverse_transform(forecast[tScore.columns]),
         index=forecast.index,
@@ -78,6 +77,8 @@ def forecastInterest(
         columns=spread.columns,
     )
     cForecast = tForecast + sForecast
+
+    mean = model.forecastMean(horizon).cumsum() + cScore.iloc[-1]
     tMean = pd.DataFrame(
         tPCA.inverse_transform(mean[tScore.columns]),
         index=mean.index,
@@ -89,6 +90,11 @@ def forecastInterest(
         columns=spread.columns,
     )
     cMean = tMean + sMean
+
+    dates = cScore.index[-model.model.k_ar :]
+    tHistory = treasury.loc[dates]
+    cHistory = tHistory + spread.loc[dates]
+
     return (
         cScore,
         cScoreDiff,
@@ -97,7 +103,8 @@ def forecastInterest(
         cForecast,
         tMean,
         cMean,
-        int(model.model.k_ar),
+        tHistory,
+        cHistory,
     )
 
 
@@ -111,7 +118,8 @@ spread = loadSpread()
     cForecast,
     tMean,
     cMean,
-    k_ar,
+    tHistory,
+    cHistory,
 ) = forecastInterest(
     treasury.iloc[:-BACKTEST_MONTHS],
     spread.iloc[:-BACKTEST_MONTHS],
@@ -125,11 +133,9 @@ spread = loadSpread()
     cForecast,
     tMean,
     cMean,
-    k_ar,
+    tHistory,
+    cHistory,
 ) = forecastInterest(treasury, spread)
-dates = cScore.index[-k_ar:]
-tHistory = treasury.loc[dates]
-cHistory = tHistory + spread.loc[dates]
 
 elements: tuple[Element, ...] = (
     Element(
@@ -178,12 +184,14 @@ elements: tuple[Element, ...] = (
                 "Treasury",
                 Style.PATHS,
                 tHistory[10.0],
+                tMean[10.0],
             ),
             Panel(
                 cForecast[10.0].unstack("scenario"),
                 "Corporate",
                 Style.PATHS,
                 cHistory[10.0],
+                cMean[10.0],
             ),
         ),
         "10_year_interest_rate_paths",

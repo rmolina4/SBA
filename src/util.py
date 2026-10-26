@@ -14,6 +14,7 @@ class Panel(NamedTuple):
     title: str
     style: Style
     history: pd.Series | None = None
+    mean: pd.Series | None = None
 
 
 type Panels = tuple[Panel, *tuple[Panel, ...]]
@@ -36,7 +37,9 @@ def plot(
     if not isinstance(data, pd.DataFrame):
         fig.suptitle(title)
 
-    for i, (ax, (df, panelTitle, style, history)) in enumerate(zip(axes[0], panels)):
+    for i, (ax, (df, panelTitle, style, history, mean)) in enumerate(
+        zip(axes[0], panels)
+    ):
         options: dict[str, Any]
         match style:
             case Style.NORMAL:
@@ -56,9 +59,13 @@ def plot(
                 history.iloc[-1], index=history.index[-1:], columns=df.columns
             )
             df = pd.concat([start, df])
+            if mean is not None:
+                mean = pd.concat([history.iloc[-1:], mean])
         df.plot(ax=ax, title=panelTitle, **options)
         if history is not None:
             history.plot(ax=ax, color=f"C{i}", linewidth=0.5)
+        if mean is not None:
+            mean.plot(ax=ax, style="k--")
 
     fig.tight_layout()
     fig.savefig(str(OUT_DIR / f"{fileName}.png"), dpi=200)
