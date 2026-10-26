@@ -13,6 +13,8 @@ import pandas as pd
 import warnings
 
 MAX_LAGS = 24
+BACKTEST_MONTHS = 12
+WARNINGS = True
 
 
 class Element(NamedTuple):
@@ -21,55 +23,71 @@ class Element(NamedTuple):
     title: str
 
 
+def forecastInterest(
+    treasury: pd.DataFrame, spread: pd.DataFrame, horizon: int = 60
+) -> tuple[pd.DataFrame, ...]:
+    tPCA = PCA(3)
+    tScore = pd.DataFrame(
+        tPCA.fit_transform(treasury),
+        index=treasury.index,
+        columns=["TPC1", "TPC2", "TPC3"],
+    )
+    tLoading = pd.DataFrame(
+        tPCA.components_.T,
+        index=treasury.columns,
+        columns=["TPC1", "TPC2", "TPC3"],
+    )
+    sPCA = PCA(3)
+    sScore = pd.DataFrame(
+        sPCA.fit_transform(spread),
+        index=spread.index,
+        columns=["SPC1", "SPC2", "SPC3"],
+    )
+    sLoading = pd.DataFrame(
+        sPCA.components_.T,
+        index=spread.columns,
+        columns=["SPC1", "SPC2", "SPC3"],
+    )
+    cScore = pd.concat([tScore, sScore], axis=1).asfreq("MS").dropna()
+    cLoading = pd.concat([tLoading, sLoading], axis=1)
+
+    cScoreDiff = cScore.diff().dropna()
+    wScoreDiff: list[warnings.WarningMessage] = []
+    with warnings.catch_warnings(record=True) as wScoreDiff:
+        warnings.simplefilter("always")
+        fit = cast(Callable[..., VARResultsWrapper], VAR(cScoreDiff).fit)
+        model = ESGVar(fit(MAX_LAGS, ic="aic", trend="c"))
+    if WARNINGS:
+        print("\nESG using differenced scores:")
+        for w in wScoreDiff:
+            print(f"\t{w.message}")
+
+    forecast = (
+        model.generateForecast(horizon).groupby(level="scenario").cumsum()
+        + cScore.iloc[-1]
+    )
+    tForecast = pd.DataFrame(
+        tPCA.inverse_transform(forecast[tScore.columns]),
+        index=forecast.index,
+        columns=treasury.columns,
+    )
+    sForecast = pd.DataFrame(
+        sPCA.inverse_transform(forecast[sScore.columns]),
+        index=forecast.index,
+        columns=spread.columns,
+    )
+    cForecast = tForecast + sForecast
+    return (cScore, cScoreDiff, cLoading, tForecast, cForecast)
+
+
 treasury = loadTreasury()
 spread = loadSpread()
-tPCA = PCA(3)
-tScore = pd.DataFrame(
-    tPCA.fit_transform(treasury),
-    index=treasury.index,
-    columns=["TPC1", "TPC2", "TPC3"],
+cScore, cScoreDiff, cLoading, tForecast, cForecast = forecastInterest(
+    treasury.iloc[:-BACKTEST_MONTHS],
+    spread.iloc[:-BACKTEST_MONTHS],
+    BACKTEST_MONTHS,
 )
-tLoading = pd.DataFrame(
-    tPCA.components_.T,
-    index=treasury.columns,
-    columns=["TPC1", "TPC2", "TPC3"],
-)
-sPCA = PCA(3)
-sScore = pd.DataFrame(
-    sPCA.fit_transform(spread),
-    index=spread.index,
-    columns=["SPC1", "SPC2", "SPC3"],
-)
-sLoading = pd.DataFrame(
-    sPCA.components_.T,
-    index=spread.columns,
-    columns=["SPC1", "SPC2", "SPC3"],
-)
-cScore = pd.concat([tScore, sScore], axis=1).asfreq("MS").dropna()
-cLoading = pd.concat([tLoading, sLoading], axis=1)
-
-cScoreDiff = cScore.diff().dropna()
-wScoreDiff: list[warnings.WarningMessage] = []
-with warnings.catch_warnings(record=True) as wScoreDiff:
-    warnings.simplefilter("always")
-    fit = cast(Callable[..., VARResultsWrapper], VAR(cScoreDiff).fit)
-    model = ESGVar(fit(maxlags=MAX_LAGS, ic="aic", trend="c"))
-print("\nESG using differenced scores:")
-for w in wScoreDiff:
-    print(f"\t{w.message}")
-
-forecast = model.generateForecast().groupby(level="scenario").cumsum() + cScore.iloc[-1]
-tForecast = pd.DataFrame(
-    tPCA.inverse_transform(forecast[tScore.columns]),
-    index=forecast.index,
-    columns=treasury.columns,
-)
-sForecast = pd.DataFrame(
-    sPCA.inverse_transform(forecast[sScore.columns]),
-    index=forecast.index,
-    columns=spread.columns,
-)
-cForecast = tForecast + sForecast
+cScore, cScoreDiff, cLoading, tForecast, cForecast = forecastInterest(treasury, spread)
 
 elements: tuple[Element, ...] = (
     Element(
@@ -78,7 +96,7 @@ elements: tuple[Element, ...] = (
             axis=1,
         ),
         "six_month",
-        title="6-Month Interest Rates",
+        "6-Month Interest Rates",
     ),
     Element(
         pd.concat(
@@ -86,7 +104,7 @@ elements: tuple[Element, ...] = (
             axis=1,
         ),
         "two_year",
-        title="2-Year Interest Rates",
+        "2-Year Interest Rates",
     ),
     Element(
         pd.concat(
@@ -94,22 +112,22 @@ elements: tuple[Element, ...] = (
             axis=1,
         ),
         "ten_year",
-        title="10-Year Interest Rates",
+        "10-Year Interest Rates",
     ),
     Element(
         cScore,
         "cScore",
-        title="Zero-Coupon Treasury Yield and Credit Spread PCA Scores",
+        "Zero-Coupon Treasury Yield and Credit Spread PCA Scores",
     ),
     Element(
         cLoading,
         "cLoading",
-        title="Zero-Coupon Treasury Yield and Credit Spread PCA Loadings",
+        "Zero-Coupon Treasury Yield and Credit Spread PCA Loadings",
     ),
     Element(
         cScoreDiff,
         "cScoreDiff",
-        title="Zero-Coupon Treasury Yield and Credit Spread PCA Score Differences",
+        "Zero-Coupon Treasury Yield and Credit Spread PCA Score Differences",
     ),
     Element(
         (
@@ -117,7 +135,7 @@ elements: tuple[Element, ...] = (
             (cForecast[10.0].unstack("scenario"), "Corporate", Style.PATHS),
         ),
         "10_year_interest_rate_paths",
-        title="10-Year Spot Rate Forecast",
+        "10-Year Spot Rate Forecast",
     ),
 )
 for e in elements:

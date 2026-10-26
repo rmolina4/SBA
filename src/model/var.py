@@ -72,7 +72,7 @@ class ESGVar(ESG[VARResultsWrapper]):
     def step(self, history: pd.DataFrame, rng: np.random.Generator) -> pd.Series:
         mean = self.model.forecast(
             history.iloc[-self.model.k_ar :].to_numpy(),
-            steps=1,
+            1,
         )[0]
         shock = rng.multivariate_normal(
             np.zeros(self.model.neqs),
