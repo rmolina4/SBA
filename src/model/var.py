@@ -10,6 +10,7 @@ import warnings
 
 Rule = tuple[Callable[[VARResultsWrapper], bool | tuple[int, ...]], Severity, str]
 NLAGS = 24
+STEP = 1
 RULES: tuple[Rule, ...] = (
     (
         lambda m: m.model.data.dates is None or m.model.data.dates.freq is None,
@@ -69,11 +70,24 @@ class ESGVar(ESG[VARResultsWrapper]):
             index=self.model.model.data.row_labels[-self.model.k_ar :],
         )
 
+    def forecastMean(self, horizon: int) -> pd.DataFrame:
+        if horizon < 1:
+            raise ValueError("horizon must be positive")
+
+        history = self.initHistory()
+        mean = self.model.forecast(history.to_numpy(), horizon)
+        dates = [
+            history.index[-1] + (i + 1) * self.model.model.data.dates.freq
+            for i in range(horizon)
+        ]
+        return pd.DataFrame(
+            mean,
+            columns=self.model.names,
+            index=pd.Index(dates, name="date"),
+        )
+
     def step(self, history: pd.DataFrame, rng: np.random.Generator) -> pd.Series:
-        mean = self.model.forecast(
-            history.iloc[-self.model.k_ar :].to_numpy(),
-            1,
-        )[0]
+        mean = self.model.forecast(history.to_numpy(), STEP)[0]
         shock = rng.multivariate_normal(
             np.zeros(self.model.neqs),
             self.model.sigma_u,

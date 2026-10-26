@@ -31,6 +31,9 @@ class ESG(ABC, Generic[ModelT]):
     @abstractmethod
     def step(self, history: pd.DataFrame, rng: np.random.Generator) -> pd.Series: ...
 
+    @abstractmethod
+    def forecastMean(self, horizon: int) -> pd.DataFrame: ...
+
     def generateForecast(
         self,
         horizon: int = 60,

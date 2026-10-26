@@ -66,6 +66,7 @@ def forecastInterest(
         model.generateForecast(horizon).groupby(level="scenario").cumsum()
         + cScore.iloc[-1]
     )
+    mean = model.forecastMean(horizon).cumsum() + cScore.iloc[-1]
     tForecast = pd.DataFrame(
         tPCA.inverse_transform(forecast[tScore.columns]),
         index=forecast.index,
@@ -77,17 +78,30 @@ def forecastInterest(
         columns=spread.columns,
     )
     cForecast = tForecast + sForecast
-    return (cScore, cScoreDiff, cLoading, tForecast, cForecast)
+    tMean = pd.DataFrame(
+        tPCA.inverse_transform(mean[tScore.columns]),
+        index=mean.index,
+        columns=treasury.columns,
+    )
+    sMean = pd.DataFrame(
+        sPCA.inverse_transform(mean[sScore.columns]),
+        index=mean.index,
+        columns=spread.columns,
+    )
+    cMean = tMean + sMean
+    return cScore, cScoreDiff, cLoading, tForecast, cForecast, tMean, cMean
 
 
 treasury = loadTreasury()
 spread = loadSpread()
-cScore, cScoreDiff, cLoading, tForecast, cForecast = forecastInterest(
+cScore, cScoreDiff, cLoading, tForecast, cForecast, tMean, cMean = forecastInterest(
     treasury.iloc[:-BACKTEST_MONTHS],
     spread.iloc[:-BACKTEST_MONTHS],
     BACKTEST_MONTHS,
 )
-cScore, cScoreDiff, cLoading, tForecast, cForecast = forecastInterest(treasury, spread)
+cScore, cScoreDiff, cLoading, tForecast, cForecast, tMean, cMean = forecastInterest(
+    treasury, spread
+)
 
 elements: tuple[Element, ...] = (
     Element(
