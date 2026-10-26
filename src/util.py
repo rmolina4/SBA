@@ -23,7 +23,7 @@ def plot(
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(
-        1, len(panels), figsize=(9 * len(panels), 6), squeeze=False
+        1, len(panels), figsize=(min(9 * len(panels), 15), 6), squeeze=False
     )
     if not isinstance(data, pd.DataFrame):
         fig.suptitle(title)
