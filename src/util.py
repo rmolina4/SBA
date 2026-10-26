@@ -4,6 +4,7 @@ from typing import Any, NamedTuple
 
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgb
 
 OUT_DIR = Path(__file__).resolve().parent.parent / "out"
 Style = Enum("Style", ["NORMAL", "PATHS"])
@@ -65,7 +66,15 @@ def plot(
         if history is not None:
             history.plot(ax=ax, color=f"C{i}", linewidth=0.5)
         if mean is not None:
-            mean.plot(ax=ax, style="k--")
+            color = tuple(channel * 0.6 for channel in to_rgb(f"C{i}"))
+            mean.plot(
+                ax=ax,
+                color=color,
+                linestyle="--",
+                linewidth=2,
+                legend=True,
+                label="Mean",
+            )
 
     fig.tight_layout()
     fig.savefig(str(OUT_DIR / f"{fileName}.png"), dpi=200)
