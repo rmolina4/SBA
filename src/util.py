@@ -88,7 +88,7 @@ def forecastIMean(
 
 def getHistory(
     treasury: pd.DataFrame, spread: pd.DataFrame, esg: ESGVar, cScore: pd.DataFrame
-):
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     dates = cScore.index[-esg.model.k_ar :]
     tHistory = treasury.loc[dates]
     cHistory = tHistory + spread.loc[dates]
