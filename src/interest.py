@@ -1,20 +1,10 @@
-from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
-from collections.abc import Callable
-from typing import NamedTuple, cast
-
-from statsmodels.tsa.api import VAR
-from sklearn.decomposition import PCA
-
 from data import loadTreasury, loadSpread
-from model.var import ESGVar
-from util import Panel, Panels, Style, plot
+from util import *
+from plot import *
 
 import pandas as pd
-import warnings
 
-MAX_LAGS = 24
 BACKTEST_MONTHS = 36
-WARNINGS = True
 
 
 class Element(NamedTuple):
@@ -23,108 +13,29 @@ class Element(NamedTuple):
     title: str
 
 
-def forecastInterest(
-    treasury: pd.DataFrame, spread: pd.DataFrame, horizon: int = 60
-) -> tuple[pd.DataFrame, ...]:
-    tPCA = PCA(3)
-    tScore = pd.DataFrame(
-        tPCA.fit_transform(treasury),
-        index=treasury.index,
-        columns=["TPC1", "TPC2", "TPC3"],
-    )
-    tLoading = pd.DataFrame(
-        tPCA.components_.T,
-        index=treasury.columns,
-        columns=["TPC1", "TPC2", "TPC3"],
-    )
-    sPCA = PCA(3)
-    sScore = pd.DataFrame(
-        sPCA.fit_transform(spread),
-        index=spread.index,
-        columns=["SPC1", "SPC2", "SPC3"],
-    )
-    sLoading = pd.DataFrame(
-        sPCA.components_.T,
-        index=spread.columns,
-        columns=["SPC1", "SPC2", "SPC3"],
-    )
-    cScore = pd.concat([tScore, sScore], axis=1).asfreq("MS").dropna()
-    cLoading = pd.concat([tLoading, sLoading], axis=1)
-
-    cScoreDiff = cScore.diff().dropna()
-    wScoreDiff: list[warnings.WarningMessage] = []
-    with warnings.catch_warnings(record=True) as wScoreDiff:
-        warnings.simplefilter("always")
-        fit = cast(Callable[..., VARResultsWrapper], VAR(cScoreDiff).fit)
-        model = ESGVar(fit(MAX_LAGS, ic="aic", trend="c"))
-    if WARNINGS:
-        print("\nESG using differenced scores:")
-        for w in wScoreDiff:
-            print(f"\t{w.message}")
-
-    forecast = (
-        model.generateForecast(horizon).groupby(level="scenario").cumsum()
-        + cScore.iloc[-1]
-    )
-    tForecast = pd.DataFrame(
-        tPCA.inverse_transform(forecast[tScore.columns]),
-        index=forecast.index,
-        columns=treasury.columns,
-    )
-    sForecast = pd.DataFrame(
-        sPCA.inverse_transform(forecast[sScore.columns]),
-        index=forecast.index,
-        columns=spread.columns,
-    )
-    cForecast = tForecast + sForecast
-
-    mean = model.forecastMean(horizon).cumsum() + cScore.iloc[-1]
-    tMean = pd.DataFrame(
-        tPCA.inverse_transform(mean[tScore.columns]),
-        index=mean.index,
-        columns=treasury.columns,
-    )
-    sMean = pd.DataFrame(
-        sPCA.inverse_transform(mean[sScore.columns]),
-        index=mean.index,
-        columns=spread.columns,
-    )
-    cMean = tMean + sMean
-
-    dates = cScore.index[-model.model.k_ar :]
-    tHistory = treasury.loc[dates]
-    cHistory = tHistory + spread.loc[dates]
-
-    return (
-        cScore,
-        cScoreDiff,
-        cLoading,
-        tForecast,
-        cForecast,
-        tMean,
-        cMean,
-        tHistory,
-        cHistory,
-    )
-
-
 treasury = loadTreasury()
 spread = loadSpread()
-(
-    cScore,
-    cScoreDiff,
-    cLoading,
-    tForecast,
-    cForecast,
-    tMean,
-    cMean,
-    tHistory,
-    cHistory,
-) = forecastInterest(
-    treasury.iloc[:-BACKTEST_MONTHS],
-    spread.iloc[:-BACKTEST_MONTHS],
-    BACKTEST_MONTHS,
+
+cScore, cLoading, tPCA, sPCA = runPCA(
+    treasury.iloc[:-BACKTEST_MONTHS], spread.iloc[:-BACKTEST_MONTHS]
 )
+esg = createESG(cScore.diff().dropna())
+maturities = treasury.columns
+tMean, cMean = forecastIMean(esg, cScore, tPCA, sPCA, maturities, BACKTEST_MONTHS)
+tRMSE = ((treasury.iloc[-BACKTEST_MONTHS:] - tMean).pow(2).mean() ** 0.5).rename(
+    "Treasury RMSE (pp)"
+)
+cRMSE = (
+    (
+        (treasury.iloc[-BACKTEST_MONTHS:] + spread.iloc[-BACKTEST_MONTHS:] - cMean)
+        .pow(2)
+        .mean()
+    )
+    ** 0.5
+).rename("Corporate RMSE (pp)")
+print(tRMSE)
+print(cRMSE)
+
 (
     cScore,
     cScoreDiff,

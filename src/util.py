@@ -1,81 +1,129 @@
-from enum import Enum
-from pathlib import Path
-from typing import Any, NamedTuple
+from collections.abc import Callable
+from typing import cast
+from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
+from statsmodels.tsa.api import VAR
+from sklearn.decomposition import PCA
+
+from model.var import ESGVar
 
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.colors import to_rgb
+import warnings
 
-OUT_DIR = Path(__file__).resolve().parent.parent / "out"
-Style = Enum("Style", ["NORMAL", "PATHS"])
-
-
-class Panel(NamedTuple):
-    data: pd.DataFrame
-    title: str
-    style: Style
-    history: pd.Series | None = None
-    mean: pd.Series | None = None
+MAX_LAGS = 24
+TCOLUMNS = ["TPC1", "TPC2", "TPC3"]
+SCOLUMNS = ["SPC1", "SPC2", "SPC3"]
+WARNINGS = True
 
 
-type Panels = tuple[Panel, *tuple[Panel, ...]]
-
-
-def plot(
-    data: pd.DataFrame | Panels,
-    fileName: str,
-    title: str,
-) -> None:
-    if isinstance(data, pd.DataFrame):
-        panels = (Panel(data, title, Style.NORMAL),)
-    else:
-        panels = data
-
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    fig, axes = plt.subplots(
-        1, len(panels), figsize=(min(9 * len(panels), 15), 6), squeeze=False
+def runPCA(
+    treasury: pd.DataFrame, spread: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame, PCA, PCA]:
+    tPCA = PCA(3)
+    tScore = pd.DataFrame(
+        tPCA.fit_transform(treasury),
+        index=treasury.index,
+        columns=TCOLUMNS,
     )
-    if not isinstance(data, pd.DataFrame):
-        fig.suptitle(title)
+    tLoading = pd.DataFrame(
+        tPCA.components_.T,
+        index=treasury.columns,
+        columns=TCOLUMNS,
+    )
+    sPCA = PCA(3)
+    sScore = pd.DataFrame(
+        sPCA.fit_transform(spread),
+        index=spread.index,
+        columns=SCOLUMNS,
+    )
+    sLoading = pd.DataFrame(
+        sPCA.components_.T,
+        index=spread.columns,
+        columns=SCOLUMNS,
+    )
+    cScore = pd.concat([tScore, sScore], axis=1).asfreq("MS").dropna()
+    cLoading = pd.concat([tLoading, sLoading], axis=1)
+    return (
+        cScore,
+        cLoading,
+        tPCA,
+        sPCA,
+    )
 
-    for i, (ax, (df, panelTitle, style, history, mean)) in enumerate(
-        zip(axes[0], panels)
-    ):
-        options: dict[str, Any]
-        match style:
-            case Style.NORMAL:
-                options = {
-                    "style": "o",
-                    "markersize": 2,
-                }
-            case Style.PATHS:
-                options = {
-                    "color": f"C{i}",
-                    "linewidth": 0.5,
-                    "alpha": len(df.columns) ** -0.5,
-                    "legend": False,
-                }
-        if history is not None and style is Style.PATHS:
-            start = pd.DataFrame(
-                history.iloc[-1], index=history.index[-1:], columns=df.columns
-            )
-            df = pd.concat([start, df])
-            if mean is not None:
-                mean = pd.concat([history.iloc[-1:], mean])
-        df.plot(ax=ax, title=panelTitle, **options)
-        if history is not None:
-            history.plot(ax=ax, color=f"C{i}", linewidth=0.5)
-        if mean is not None:
-            color = tuple(channel * 0.6 for channel in to_rgb(f"C{i}"))
-            mean.plot(
-                ax=ax,
-                color=color,
-                linestyle="--",
-                linewidth=2,
-                legend=True,
-                label="Mean",
-            )
 
-    fig.tight_layout()
-    fig.savefig(str(OUT_DIR / f"{fileName}.png"), dpi=200)
-    plt.close(fig)
+def createESG(df: pd.DataFrame) -> ESGVar:
+    esgWarnings: list[warnings.WarningMessage] = []
+    with warnings.catch_warnings(record=True) as esgWarnings:
+        warnings.simplefilter("always")
+        fit = cast(Callable[..., VARResultsWrapper], VAR(df).fit)
+        esg = ESGVar(fit(MAX_LAGS, ic="aic", trend="c"))
+    if WARNINGS:
+        print("\nESG:")
+        for w in esgWarnings:
+            print(f"\t{w.message}")
+    return esg
+
+
+def forecastIMean(
+    esg: ESGVar,
+    cScore: pd.DataFrame,
+    tPCA: PCA,
+    sPCA: PCA,
+    maturities: pd.Index,
+    horizon: int,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    mean = esg.forecastMean(horizon).cumsum() + cScore.iloc[-1]
+    tMean = pd.DataFrame(
+        tPCA.inverse_transform(mean[TCOLUMNS]),
+        index=mean.index,
+        columns=maturities,
+    )
+    sMean = pd.DataFrame(
+        sPCA.inverse_transform(mean[SCOLUMNS]),
+        index=mean.index,
+        columns=maturities,
+    )
+    cMean = tMean + sMean
+    return tMean, cMean
+
+
+def forecastInterest(
+    treasury: pd.DataFrame,
+    spread: pd.DataFrame,
+    horizon: int = 60,
+) -> tuple[pd.DataFrame, ...]:
+    cScore, cLoading, tPCA, sPCA = runPCA(treasury, spread)
+    cScoreDiff = cScore.diff().dropna()
+    esg = createESG(cScoreDiff)
+    maturities = treasury.columns
+
+    forecast = (
+        esg.generateForecast(horizon).groupby(level="scenario").cumsum()
+        + cScore.iloc[-1]
+    )
+    tForecast = pd.DataFrame(
+        tPCA.inverse_transform(forecast[TCOLUMNS]),
+        index=forecast.index,
+        columns=maturities,
+    )
+    sForecast = pd.DataFrame(
+        sPCA.inverse_transform(forecast[SCOLUMNS]),
+        index=forecast.index,
+        columns=maturities,
+    )
+    cForecast = tForecast + sForecast
+
+    tMean, cMean = forecastIMean(esg, cScore, tPCA, sPCA, maturities, horizon)
+    dates = cScore.index[-esg.model.k_ar :]
+    tHistory = treasury.loc[dates]
+    cHistory = tHistory + spread.loc[dates]
+    return (
+        cScore,
+        cScoreDiff,
+        cLoading,
+        tForecast,
+        cForecast,
+        tMean,
+        cMean,
+        tHistory,
+        cHistory,
+    )
