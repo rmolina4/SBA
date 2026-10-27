@@ -9,10 +9,14 @@ import matplotlib.pyplot as plt
 
 OUT_DIR = Path(__file__).resolve().parent.parent / "out"
 Style = Enum("Style", ["NORMAL", "PATHS"])
+STYLE_OPTIONS: dict[Style, dict[str, Any]] = {
+    Style.NORMAL: {"style": "o", "markersize": 2, "legend": True},
+    Style.PATHS: {"linewidth": 0.5, "legend": False},
+}
 
 
 class Panel(NamedTuple):
-    data: pd.DataFrame
+    data: pd.DataFrame | pd.Series
     title: str
     style: Style
     history: pd.Series | None = None
@@ -49,27 +53,20 @@ def plot(
 
 def plotPanel(ax: Axes, panel: Panel, i: int) -> None:
     df, panelTitle, style, history, mean = panel
-    options: dict[str, Any]
-    match style:
-        case Style.NORMAL:
-            options = {
-                "style": "o",
-                "markersize": 2,
-            }
-        case Style.PATHS:
-            options = {
-                "color": f"C{i}",
-                "linewidth": 0.5,
-                "alpha": len(df.columns) ** -0.5,
-                "legend": False,
-            }
-    if history is not None and style is Style.PATHS:
-        start = pd.DataFrame(
-            history.iloc[-1], index=history.index[-1:], columns=df.columns
-        )
-        df = pd.concat([start, df])
-        if mean is not None:
-            mean = pd.concat([history.iloc[-1:], mean])
+    options = STYLE_OPTIONS[style].copy()
+
+    if style is Style.PATHS:
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("Style.PATHS requires a DataFrame")
+        options.update(color=f"C{i}", alpha=len(df.columns) ** -0.5)
+        if history is not None:
+            start = pd.DataFrame(
+                history.iloc[-1], index=history.index[-1:], columns=df.columns
+            )
+            df = pd.concat([start, df])
+            if mean is not None:
+                mean = pd.concat([history.iloc[-1:], mean])
+
     df.plot(ax=ax, title=panelTitle, **options)
     if history is not None:
         history.plot(ax=ax, color=f"C{i}", linewidth=0.5)

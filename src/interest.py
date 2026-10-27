@@ -21,20 +21,22 @@ cScore, cLoading, tPCA, sPCA = runPCA(
 )
 esg = createESG(cScore.diff().dropna())
 maturities = treasury.columns
-tMean, cMean = forecastIMean(esg, cScore, tPCA, sPCA, maturities, BACKTEST_MONTHS)
-tRMSE = ((treasury.iloc[-BACKTEST_MONTHS:] - tMean).pow(2).mean() ** 0.5).rename(
-    "Treasury RMSE (pp)"
+tBacktestMean, cBacktestMean = forecastIMean(
+    esg, cScore, tPCA, sPCA, maturities, BACKTEST_MONTHS
 )
-cRMSE = (
-    (
-        (treasury.iloc[-BACKTEST_MONTHS:] + spread.iloc[-BACKTEST_MONTHS:] - cMean)
-        .pow(2)
-        .mean()
-    )
-    ** 0.5
-).rename("Corporate RMSE (pp)")
-print(tRMSE)
-print(cRMSE)
+tMSE = (
+    (treasury.iloc[-BACKTEST_MONTHS:] - tBacktestMean)
+    .pow(2)
+    .mean()
+    .rename("Treasury MSE")
+)
+cMSE = (
+    (treasury.iloc[-BACKTEST_MONTHS:] + spread.iloc[-BACKTEST_MONTHS:] - cBacktestMean)
+    .pow(2)
+    .mean()
+).rename("Corporate MSE")
+print(tMSE)
+print(cMSE)
 
 (
     cScore,
@@ -105,8 +107,29 @@ elements: tuple[Element, ...] = (
                 cMean[10.0],
             ),
         ),
-        "10_year_interest_rate_paths",
+        "10_year_spot_rate_paths",
         "10-Year Spot Rate Forecast",
+    ),
+    Element(
+        (
+            Panel(
+                treasury.iloc[-BACKTEST_MONTHS:][10.0].rename("Observed"),
+                "Treasury",
+                Style.NORMAL,
+                mean=tBacktestMean[10.0],
+            ),
+            Panel(
+                (
+                    treasury.iloc[-BACKTEST_MONTHS:][10.0]
+                    + spread.iloc[-BACKTEST_MONTHS:][10.0]
+                ).rename("Observed"),
+                "Corporate",
+                Style.NORMAL,
+                mean=cBacktestMean[10.0],
+            ),
+        ),
+        "10_year_spot_rate_backtest",
+        f"10-Year Spot Rate Backtest",
     ),
 )
 for e in elements:
