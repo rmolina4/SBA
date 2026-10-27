@@ -86,6 +86,15 @@ def forecastIMean(
     return tMean, cMean
 
 
+def getHistory(
+    treasury: pd.DataFrame, spread: pd.DataFrame, esg: ESGVar, cScore: pd.DataFrame
+):
+    dates = cScore.index[-esg.model.k_ar :]
+    tHistory = treasury.loc[dates]
+    cHistory = tHistory + spread.loc[dates]
+    return tHistory, cHistory
+
+
 def forecastInterest(
     treasury: pd.DataFrame,
     spread: pd.DataFrame,
@@ -113,9 +122,7 @@ def forecastInterest(
     cForecast = tForecast + sForecast
 
     tMean, cMean = forecastIMean(esg, cScore, tPCA, sPCA, maturities, horizon)
-    dates = cScore.index[-esg.model.k_ar :]
-    tHistory = treasury.loc[dates]
-    cHistory = tHistory + spread.loc[dates]
+    tHistory, cHistory = getHistory(treasury, spread, esg, cScore)
     return (
         cScore,
         cScoreDiff,
