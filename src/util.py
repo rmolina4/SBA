@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from typing import cast
+from pydantic import PositiveInt, validate_call
 from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 from statsmodels.tsa.api import VAR
 from sklearn.decomposition import PCA
@@ -95,10 +96,11 @@ def getHistory(
     return tHistory, cHistory
 
 
+@validate_call(config={"strict": True, "arbitrary_types_allowed": True})
 def forecastInterest(
     treasury: pd.DataFrame,
     spread: pd.DataFrame,
-    horizon: int = 60,
+    horizon: PositiveInt = 60,
 ) -> tuple[pd.DataFrame, ...]:
     cScore, cLoading, tPCA, sPCA = runPCA(treasury, spread)
     cScoreDiff = cScore.diff().dropna()

@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from pydantic import PositiveInt, validate_call
 from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 
 from .esg import ESG, Severity
@@ -70,10 +71,8 @@ class ESGVar(ESG[VARResultsWrapper]):
             index=self.model.model.data.row_labels[-self.model.k_ar :],
         )
 
-    def forecastMean(self, horizon: int) -> pd.DataFrame:
-        if horizon < 1:
-            raise ValueError("horizon must be positive")
-
+    @validate_call(config={"strict": True})
+    def forecastMean(self, horizon: PositiveInt) -> pd.DataFrame:
         history = self.initHistory()
         mean = self.model.forecast(history.to_numpy(), horizon)
         dates = [

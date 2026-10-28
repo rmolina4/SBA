@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 from enum import Enum
+from pydantic import NonNegativeInt, PositiveInt, validate_call
 
 import numpy as np
 import pandas as pd
@@ -34,15 +35,13 @@ class ESG(ABC, Generic[ModelT]):
     @abstractmethod
     def forecastMean(self, horizon: int) -> pd.DataFrame: ...
 
+    @validate_call(config={"strict": True})
     def generateForecast(
         self,
-        horizon: int = 60,
-        scenario: int = 10000,
-        seed: int = 0,
+        horizon: PositiveInt = 60,
+        scenario: PositiveInt = 10000,
+        seed: NonNegativeInt = 0,
     ) -> pd.DataFrame:
-        if horizon < 1 or scenario < 1:
-            raise ValueError("horizon and scenario must be positive")
-
         rng = np.random.default_rng(seed)
         init = self.initHistory()
         scenarios: list[pd.DataFrame] = []

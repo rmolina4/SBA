@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Literal
+from pydantic import validate_call
 
 import pandas as pd
 import numpy as np
@@ -67,6 +68,7 @@ def loadSurvival() -> pd.DataFrame:
     return 1 - mortality
 
 
+@validate_call(config={"strict": True})
 def loadRetireeSurvival(
     sex: Literal["female", "male"], birth: int, start: int
 ) -> pd.DataFrame:
