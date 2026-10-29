@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import NamedTuple
 from pydantic import PositiveInt, validate_call
 from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 
@@ -9,44 +10,67 @@ import numpy as np
 import pandas as pd
 import warnings
 
-Rule = tuple[Callable[[VARResultsWrapper], bool | tuple[int, ...]], Severity, str]
+
+class Rule(NamedTuple):
+    condition: Callable[[VARResultsWrapper], bool | tuple[int, ...]]
+    severity: Severity
+    message: str
+
+
 NLAGS = 24
 STEP = 1
 RULES: tuple[Rule, ...] = (
-    (
-        lambda m: m.model.data.dates is None or m.model.data.dates.freq is None,
-        Severity.ERROR,
-        "VAR requires dated observations with a regular frequency.",
+    Rule.__new__(
+        Rule,
+        condition=lambda m: m.model.data.dates is None
+        or m.model.data.dates.freq is None,
+        severity=Severity.ERROR,
+        message="VAR requires dated observations with a regular frequency.",
     ),
-    (lambda m: m.k_ar == 0, Severity.ERROR, "VAR has no lags"),
-    (lambda m: not m.is_stable(), Severity.ERROR, "VAR is unstable"),
-    (
-        lambda m: adfTest(m.endog),
-        Severity.WARNING,
-        "ADF - could not reject a unit root in at least one factor",
+    Rule.__new__(
+        Rule,
+        condition=lambda m: m.k_ar == 0,
+        severity=Severity.ERROR,
+        message="VAR has no lags",
     ),
-    (
-        lambda m: kpssTest(m.endog),
-        Severity.WARNING,
-        "KPSS - rejected level stationarity in at least one factor",
+    Rule.__new__(
+        Rule,
+        condition=lambda m: not m.is_stable(),
+        severity=Severity.ERROR,
+        message="VAR is unstable",
     ),
-    (
-        lambda m: m.test_normality(SIGNIF).conclusion == "reject",
-        Severity.WARNING,
-        "Normality - evidence against Gaussian residuals",
+    Rule.__new__(
+        Rule,
+        condition=lambda m: adfTest(m.endog),
+        severity=Severity.WARNING,
+        message="ADF - could not reject a unit root in at least one factor",
     ),
-    (
-        lambda m: m.test_whiteness(
+    Rule.__new__(
+        Rule,
+        condition=lambda m: kpssTest(m.endog),
+        severity=Severity.WARNING,
+        message="KPSS - rejected level stationarity in at least one factor",
+    ),
+    Rule.__new__(
+        Rule,
+        condition=lambda m: m.test_normality(SIGNIF).conclusion == "reject",
+        severity=Severity.WARNING,
+        message="Normality - evidence against Gaussian residuals",
+    ),
+    Rule.__new__(
+        Rule,
+        condition=lambda m: m.test_whiteness(
             nlags=max(NLAGS, m.k_ar + 1), signif=SIGNIF
         ).conclusion
         == "reject",
-        Severity.WARNING,
-        "Whiteness - evidence of residual autocorrelation",
+        severity=Severity.WARNING,
+        message="Whiteness - evidence of residual autocorrelation",
     ),
-    (
-        lambda m: archTest(m.resid.to_numpy()),
-        Severity.WARNING,
-        "ARCH - evidence of conditional heteroscedasticity in at least one residual series",
+    Rule.__new__(
+        Rule,
+        condition=lambda m: archTest(m.resid.to_numpy()),
+        severity=Severity.WARNING,
+        message="ARCH - evidence of conditional heteroscedasticity in at least one residual series",
     ),
 )
 
@@ -55,12 +79,13 @@ class ESGVar(ESG[VARResultsWrapper]):
     __slots__ = ()
 
     def validate(self) -> None:
-        for condition, severity, message in RULES:
-            result = condition(self.model)
+        for rule in RULES:
+            result = rule.condition(self.model)
             if result:
+                message = rule.message
                 if isinstance(result, tuple):
                     message = f"{message}; Failing columns - {result}"
-                if severity is Severity.ERROR:
+                if rule.severity is Severity.ERROR:
                     raise ValueError(message)
                 warnings.warn(message)
 
