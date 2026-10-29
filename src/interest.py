@@ -1,4 +1,4 @@
-from data import loadTreasury, loadSpread
+from data import loadTreasury, loadCorporate
 from util import *
 from plot import *
 
@@ -14,9 +14,10 @@ class Element(NamedTuple):
 
 
 treasury = loadTreasury()
-spread = loadSpread()
+corporate = loadCorporate()
+spread = (corporate - treasury).dropna()
 
-cScore, cLoading, tPCA, sPCA = runPCA(
+cScore, cLoading, tPCA, sPCA = runIPCA(
     treasury.iloc[:-BACKTEST_MONTHS], spread.iloc[:-BACKTEST_MONTHS]
 )
 esg = createESG(cScore.diff().dropna())
@@ -30,11 +31,9 @@ tMSE = (
     .mean()
     .rename("Treasury MSE")
 )
-cMSE = (
-    (treasury.iloc[-BACKTEST_MONTHS:] + spread.iloc[-BACKTEST_MONTHS:] - cBacktestMean)
-    .pow(2)
-    .mean()
-).rename("Corporate MSE")
+cMSE = ((corporate.iloc[-BACKTEST_MONTHS:] - cBacktestMean).pow(2).mean()).rename(
+    "Corporate MSE"
+)
 print(tMSE)
 print(cMSE)
 
@@ -53,7 +52,7 @@ print(cMSE)
 elements: tuple[Element, ...] = (
     Element(
         pd.concat(
-            {"Treasury": treasury[0.5], "Corporate": treasury[0.5] + spread[0.5]},
+            {"Treasury": treasury[0.5], "Corporate": corporate[0.5]},
             axis=1,
         ),
         "six_month",
@@ -61,7 +60,7 @@ elements: tuple[Element, ...] = (
     ),
     Element(
         pd.concat(
-            {"Treasury": treasury[2.0], "Corporate": treasury[2.0] + spread[2.0]},
+            {"Treasury": treasury[2.0], "Corporate": corporate[2.0]},
             axis=1,
         ),
         "two_year",
@@ -69,7 +68,7 @@ elements: tuple[Element, ...] = (
     ),
     Element(
         pd.concat(
-            {"Treasury": treasury[10.0], "Corporate": treasury[10.0] + spread[10.0]},
+            {"Treasury": treasury[10.0], "Corporate": corporate[10.0]},
             axis=1,
         ),
         "ten_year",
@@ -119,10 +118,7 @@ elements: tuple[Element, ...] = (
                 mean=tBacktestMean[10.0],
             ),
             Panel(
-                (
-                    treasury.iloc[-BACKTEST_MONTHS:][10.0]
-                    + spread.iloc[-BACKTEST_MONTHS:][10.0]
-                ).rename("Observed"),
+                (corporate.iloc[-BACKTEST_MONTHS:][10.0]).rename("Observed"),
                 "Corporate",
                 Style.NORMAL,
                 mean=cBacktestMean[10.0],

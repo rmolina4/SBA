@@ -124,12 +124,6 @@ def loadCorporate() -> pd.DataFrame:
     return loadCurve("hqm_corporate_bond_spot_curve_*.xls*")
 
 
-def loadSpread() -> pd.DataFrame:
-    treasury = loadTreasury()
-    corporate = loadCorporate()
-    return (corporate - treasury).dropna()
-
-
 # synthetic benefits
 # https://www.ssa.gov/policy/docs/microdata/bepuf-2020/index.html
 def loadPension() -> pd.DataFrame:
@@ -146,12 +140,10 @@ def loadPension() -> pd.DataFrame:
 if __name__ == "__main__":
     survival = loadSurvival()
     treasury = loadTreasury()
-    spread = loadSpread()
     pension = loadPension()
     retireeSurvival = loadRetireeSurvival("female", 1955, 2022)
     print(survival)
     print(treasury)
-    print(spread)
     print(pension)
     print(f'${pension["mbc"].sum():,.2f}')
     print(retireeSurvival)

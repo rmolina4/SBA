@@ -17,30 +17,27 @@ WARNINGS = True
 
 
 def runPCA(
+    df: pd.DataFrame, columns: list[str]
+) -> tuple[PCA, pd.DataFrame, pd.DataFrame]:
+    pca = PCA(3)
+    score = pd.DataFrame(
+        pca.fit_transform(df),
+        index=df.index,
+        columns=columns,
+    )
+    loading = pd.DataFrame(
+        pca.components_.T,
+        index=df.columns,
+        columns=columns,
+    )
+    return pca, score, loading
+
+
+def runIPCA(
     treasury: pd.DataFrame, spread: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame, PCA, PCA]:
-    tPCA = PCA(3)
-    tScore = pd.DataFrame(
-        tPCA.fit_transform(treasury),
-        index=treasury.index,
-        columns=TCOLUMNS,
-    )
-    tLoading = pd.DataFrame(
-        tPCA.components_.T,
-        index=treasury.columns,
-        columns=TCOLUMNS,
-    )
-    sPCA = PCA(3)
-    sScore = pd.DataFrame(
-        sPCA.fit_transform(spread),
-        index=spread.index,
-        columns=SCOLUMNS,
-    )
-    sLoading = pd.DataFrame(
-        sPCA.components_.T,
-        index=spread.columns,
-        columns=SCOLUMNS,
-    )
+    tPCA, tScore, tLoading = runPCA(treasury, TCOLUMNS)
+    sPCA, sScore, sLoading = runPCA(spread, SCOLUMNS)
     cScore = pd.concat([tScore, sScore], axis=1).asfreq("MS").dropna()
     cLoading = pd.concat([tLoading, sLoading], axis=1)
     return (
@@ -102,7 +99,7 @@ def forecastInterest(
     spread: pd.DataFrame,
     horizon: PositiveInt = 60,
 ) -> tuple[pd.DataFrame, ...]:
-    cScore, cLoading, tPCA, sPCA = runPCA(treasury, spread)
+    cScore, cLoading, tPCA, sPCA = runIPCA(treasury, spread)
     cScoreDiff = cScore.diff().dropna()
     esg = createESG(cScoreDiff)
     maturities = treasury.columns
