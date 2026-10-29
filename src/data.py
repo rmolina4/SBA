@@ -15,7 +15,7 @@ MAX_MATURITY = 30
 def loadMortality() -> pd.DataFrame:
     return pd.read_excel(
         DATA_DIR / "soa_pri2012_amount_weighted_mortality.xlsx",
-        sheet_name="Total Dataset",
+        "Total Dataset",
         header=None,
         index_col=0,
         usecols="B,E,J",
@@ -31,7 +31,7 @@ def loadImprovement() -> pd.DataFrame:
         pd.concat(
             pd.read_excel(
                 DATA_DIR / "soa_mp2021_mortality_improvement.xlsx",
-                sheet_name=["Female", "Male"],
+                ["Female", "Male"],
                 header=1,
                 index_col=0,
             ),
@@ -42,7 +42,7 @@ def loadImprovement() -> pd.DataFrame:
         .rename(
             columns=lambda year: 2037 if year == "2037+" else int(year), level="year"
         )
-        .rename(index=lambda age: 20 if age == "≤ 20" else int(age))
+        .rename(lambda age: 20 if age == "≤ 20" else int(age))
     )
 
 
@@ -59,7 +59,7 @@ def loadSurvival() -> pd.DataFrame:
                     1 - improvement[sex],
                 ],
                 axis=1,
-            ).cumprod(axis=1)
+            ).cumprod(1)
             for sex in mortality
         },
         axis=1,

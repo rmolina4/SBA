@@ -22,55 +22,52 @@ STEP = 1
 RULES: tuple[Rule, ...] = (
     Rule.__new__(
         Rule,
-        condition=lambda m: m.model.data.dates is None
-        or m.model.data.dates.freq is None,
-        severity=Severity.ERROR,
-        message="VAR requires dated observations with a regular frequency.",
+        lambda m: m.model.data.dates is None or m.model.data.dates.freq is None,
+        Severity.ERROR,
+        "VAR requires dated observations with a regular frequency.",
     ),
     Rule.__new__(
         Rule,
-        condition=lambda m: m.k_ar == 0,
-        severity=Severity.ERROR,
-        message="VAR has no lags",
+        lambda m: m.k_ar == 0,
+        Severity.ERROR,
+        "VAR has no lags",
     ),
     Rule.__new__(
         Rule,
-        condition=lambda m: not m.is_stable(),
-        severity=Severity.ERROR,
-        message="VAR is unstable",
+        lambda m: not m.is_stable(),
+        Severity.ERROR,
+        "VAR is unstable",
     ),
     Rule.__new__(
         Rule,
-        condition=lambda m: adfTest(m.endog),
-        severity=Severity.WARNING,
-        message="ADF - could not reject a unit root in at least one factor",
+        lambda m: adfTest(m.endog),
+        Severity.WARNING,
+        "ADF - could not reject a unit root in at least one factor",
     ),
     Rule.__new__(
         Rule,
-        condition=lambda m: kpssTest(m.endog),
-        severity=Severity.WARNING,
-        message="KPSS - rejected level stationarity in at least one factor",
+        lambda m: kpssTest(m.endog),
+        Severity.WARNING,
+        "KPSS - rejected level stationarity in at least one factor",
     ),
     Rule.__new__(
         Rule,
-        condition=lambda m: m.test_normality(SIGNIF).conclusion == "reject",
-        severity=Severity.WARNING,
-        message="Normality - evidence against Gaussian residuals",
+        lambda m: m.test_normality(SIGNIF).conclusion == "reject",
+        Severity.WARNING,
+        "Normality - evidence against Gaussian residuals",
     ),
     Rule.__new__(
         Rule,
-        condition=lambda m: m.test_whiteness(
-            nlags=max(NLAGS, m.k_ar + 1), signif=SIGNIF
-        ).conclusion
+        lambda m: m.test_whiteness(max(NLAGS, m.k_ar + 1), SIGNIF).conclusion
         == "reject",
-        severity=Severity.WARNING,
-        message="Whiteness - evidence of residual autocorrelation",
+        Severity.WARNING,
+        "Whiteness - evidence of residual autocorrelation",
     ),
     Rule.__new__(
         Rule,
-        condition=lambda m: archTest(m.resid.to_numpy()),
-        severity=Severity.WARNING,
-        message="ARCH - evidence of conditional heteroscedasticity in at least one residual series",
+        lambda m: archTest(m.resid.to_numpy()),
+        Severity.WARNING,
+        "ARCH - evidence of conditional heteroscedasticity in at least one residual series",
     ),
 )
 
@@ -92,8 +89,8 @@ class ESGVar(ESG[VARResultsWrapper]):
     def initHistory(self) -> pd.DataFrame:
         return pd.DataFrame(
             self.model.endog[-self.model.k_ar :],
-            columns=self.model.names,
-            index=self.model.model.data.row_labels[-self.model.k_ar :],
+            self.model.model.data.row_labels[-self.model.k_ar :],
+            self.model.names,
         )
 
     @validate_call(config={"strict": True})
@@ -106,8 +103,8 @@ class ESGVar(ESG[VARResultsWrapper]):
         ]
         return pd.DataFrame(
             mean,
-            columns=self.model.names,
-            index=pd.Index(dates, name="date"),
+            pd.Index(dates, name="date"),
+            self.model.names,
         )
 
     def step(self, history: pd.DataFrame, rng: np.random.Generator) -> pd.Series:

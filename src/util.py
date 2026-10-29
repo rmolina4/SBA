@@ -22,13 +22,13 @@ def runPCA(
     pca = PCA(3)
     score = pd.DataFrame(
         pca.fit_transform(df),
-        index=df.index,
-        columns=columns,
+        df.index,
+        columns,
     )
     loading = pd.DataFrame(
         pca.components_.T,
-        index=df.columns,
-        columns=columns,
+        df.columns,
+        columns,
     )
     return pca, score, loading
 
@@ -72,13 +72,13 @@ def forecastIMean(
     mean = esg.forecastMean(horizon).cumsum() + cScore.iloc[-1]
     tMean = pd.DataFrame(
         tPCA.inverse_transform(mean[TCOLUMNS]),
-        index=mean.index,
-        columns=maturities,
+        mean.index,
+        maturities,
     )
     sMean = pd.DataFrame(
         sPCA.inverse_transform(mean[SCOLUMNS]),
-        index=mean.index,
-        columns=maturities,
+        mean.index,
+        maturities,
     )
     cMean = tMean + sMean
     return tMean, cMean
@@ -110,13 +110,13 @@ def forecastInterest(
     )
     tForecast = pd.DataFrame(
         tPCA.inverse_transform(forecast[TCOLUMNS]),
-        index=forecast.index,
-        columns=maturities,
+        forecast.index,
+        maturities,
     )
     sForecast = pd.DataFrame(
         sPCA.inverse_transform(forecast[SCOLUMNS]),
-        index=forecast.index,
-        columns=maturities,
+        forecast.index,
+        maturities,
     )
     cForecast = tForecast + sForecast
 

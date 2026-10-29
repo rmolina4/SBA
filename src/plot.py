@@ -61,7 +61,7 @@ def plotPanel(ax: Axes, panel: Panel, i: int) -> None:
         options.update(color=f"C{i}", alpha=len(df.columns) ** -0.5)
         if history is not None:
             start = pd.DataFrame(
-                history.iloc[-1], index=history.index[-1:], columns=df.columns
+                history.iloc[-1], history.index[-1:], df.columns
             )
             df = pd.concat([start, df])
             if mean is not None:
