@@ -5,12 +5,12 @@ from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 from statsmodels.tsa.api import VAR
 from sklearn.decomposition import PCA
 
+from model.diagnostic import MAX_LAGS
 from model.var import ESGVar
 
 import pandas as pd
 import warnings
 
-MAX_LAGS = 24
 TCOLUMNS = ["TPC1", "TPC2", "TPC3"]
 SCOLUMNS = ["SPC1", "SPC2", "SPC3"]
 WARNINGS = True

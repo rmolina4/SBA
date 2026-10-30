@@ -1,33 +1,23 @@
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
-from enum import Enum
+from dataclasses import dataclass
 from pydantic import NonNegativeInt, PositiveInt, validate_call
 
 import numpy as np
 import pandas as pd
 
-ModelT = TypeVar("ModelT")
-Severity = Enum("Severity", ["ERROR", "WARNING"])
 
+@dataclass(frozen=True, slots=True)
+class ESG[ResultT](ABC):
+    model: ResultT
 
-class ESG(ABC, Generic[ModelT]):
-    __slots__ = "model"
-
-    def __init__(self, model: ModelT, check: bool = True) -> None:
-        object.__setattr__(self, "model", model)
-        self.validate() if check else None
-
-    def __setattr__(self, name: str, value: object) -> None:
-        raise AttributeError(f"Cannot modify immutable field '{name}'")
-
-    def __delattr__(self, name: str) -> None:
-        raise AttributeError(f"Cannot delete immutable field '{name}'")
+    def __post_init__(self) -> None:
+        self.validate()
 
     @abstractmethod
     def validate(self) -> None: ...
 
     @abstractmethod
-    def initHistory(self) -> pd.DataFrame: ...
+    def getHistory(self) -> pd.DataFrame: ...
 
     @abstractmethod
     def step(self, history: pd.DataFrame, rng: np.random.Generator) -> pd.Series: ...
@@ -43,16 +33,12 @@ class ESG(ABC, Generic[ModelT]):
         seed: NonNegativeInt = 0,
     ) -> pd.DataFrame:
         rng = np.random.default_rng(seed)
-        init = self.initHistory()
+        initial = self.getHistory()
         scenarios: list[pd.DataFrame] = []
         for _ in range(scenario):
-            history = init.copy()
+            history = initial.copy()
             for _ in range(horizon):
                 row = self.step(history, rng)
                 history.loc[row.name] = row
-            scenarios.append(history.iloc[len(init) :])
-        return pd.concat(
-            scenarios,
-            keys=range(scenario),
-            names=["scenario", "date"],
-        )
+            scenarios.append(history.tail(horizon))
+        return pd.concat(scenarios, keys=range(scenario), names=["scenario", "date"])
