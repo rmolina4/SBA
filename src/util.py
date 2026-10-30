@@ -55,7 +55,7 @@ def createESG(df: pd.DataFrame) -> ESGVar:
         fit = cast(Callable[..., VARResultsWrapper], VAR(df).fit)
         esg = ESGVar(fit(MAX_LAGS, ic="aic", trend="c"))
     if WARNINGS:
-        print("\nESG:")
+        print("\nESG Warnings:")
         for w in esgWarnings:
             print(f"\t{w.message}")
     return esg
