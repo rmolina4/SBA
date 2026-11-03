@@ -19,7 +19,6 @@ class Panel(NamedTuple):
     data: pd.DataFrame | pd.Series
     title: str
     style: Style
-    history: pd.Series | None = None
     mean: pd.Series | None = None
 
 
@@ -52,24 +51,15 @@ def plot(
 
 
 def plotPanel(ax: Axes, panel: Panel, i: int) -> None:
-    df, panelTitle, style, history, mean = panel
+    df, panelTitle, style, mean = panel
     options = STYLE_OPTIONS[style].copy()
 
     if style is Style.PATHS:
         if not isinstance(df, pd.DataFrame):
             raise TypeError("Style.PATHS requires a DataFrame")
         options.update(color=f"C{i}", alpha=len(df.columns) ** -0.5)
-        if history is not None:
-            start = pd.DataFrame(
-                history.iloc[-1], history.index[-1:], df.columns
-            )
-            df = pd.concat([start, df])
-            if mean is not None:
-                mean = pd.concat([history.iloc[-1:], mean])
 
     df.plot(ax=ax, title=panelTitle, **options)
-    if history is not None:
-        history.plot(ax=ax, color=f"C{i}", linewidth=0.5)
     if mean is not None:
         color = tuple(channel * 0.6 for channel in to_rgb(f"C{i}"))
         mean.plot(

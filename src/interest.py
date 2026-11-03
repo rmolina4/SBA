@@ -67,21 +67,28 @@ for df, filename, title in (
         f"Treasury Yield and Credit Spread PCA {title}",
     )
 
+tPath = tForecast[10.0].unstack("scenario")
+cPath = cForecast[10.0].unstack("scenario")
+tPathHistory = pd.concat(
+    [tHistory[10.0]] * len(tPath.columns), axis=1, keys=tPath.columns
+)
+cPathHistory = pd.concat(
+    [cHistory[10.0]] * len(cPath.columns), axis=1, keys=cPath.columns
+)
+
 plot(
     (
         Panel(
-            tForecast[10.0].unstack("scenario"),
+            pd.concat([tPathHistory, tPath]),
             "Treasury",
             Style.PATHS,
-            tHistory[10.0],
-            tMean[10.0],
+            pd.concat([tHistory[10.0].iloc[-1:], tMean[10.0]]),
         ),
         Panel(
-            cForecast[10.0].unstack("scenario"),
+            pd.concat([cPathHistory, cPath]),
             "Corporate",
             Style.PATHS,
-            cHistory[10.0],
-            cMean[10.0],
+            pd.concat([cHistory[10.0].iloc[-1:], cMean[10.0]]),
         ),
     ),
     "10_year_spot_rate_paths",
