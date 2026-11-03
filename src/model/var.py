@@ -16,8 +16,8 @@ class ESGVar(ESG[VARResultsWrapper]):
 
     def getHistory(self) -> pd.DataFrame:
         return pd.DataFrame(
-            self.model.endog[-self.k_ar :],
-            self.model.model.data.row_labels[-self.k_ar :],
+            self.model.endog[-self.lagOrder :],
+            self.model.model.data.row_labels[-self.lagOrder :],
             self.model.names,
         )
 

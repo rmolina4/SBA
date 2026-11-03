@@ -26,14 +26,14 @@ class ESG[ResultT: Result](ABC):
         init=False, repr=False, compare=False
     )
     frequency: BaseOffset = field(init=False, repr=False, compare=False)
-    k_ar: int = field(init=False, repr=False, compare=False)
+    lagOrder: int = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         dates = DATES_ADAPTER.validate_python(self.model.dates)
         frequency = FREQUENCY_ADAPTER.validate_python(dates.freq)
         object.__setattr__(self, "dates", dates)
         object.__setattr__(self, "frequency", frequency)
-        object.__setattr__(self, "k_ar", getLagOrder(self.model))
+        object.__setattr__(self, "lagOrder", getLagOrder(self.model))
         self.validate()
 
     def validate(self) -> None:
