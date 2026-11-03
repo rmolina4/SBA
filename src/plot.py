@@ -30,19 +30,18 @@ def plot(
     fileName: str,
     title: str,
 ) -> None:
+    showFigureTitle = not isinstance(data, pd.DataFrame)
     if isinstance(data, pd.DataFrame):
-        panels = (Panel(data, title, Style.NORMAL),)
-    else:
-        panels = data
+        data = (Panel(data, title, Style.NORMAL),)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(
-        1, len(panels), figsize=(min(9 * len(panels), 15), 6), squeeze=False
+        1, len(data), figsize=(min(9 * len(data), 15), 6), squeeze=False
     )
-    if not isinstance(data, pd.DataFrame):
+    if showFigureTitle:
         fig.suptitle(title)
 
-    for i, (ax, panel) in enumerate(zip(axes[0], panels)):
+    for i, (ax, panel) in enumerate(zip(axes[0], data)):
         plotPanel(ax, panel, i)
 
     fig.tight_layout()
