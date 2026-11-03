@@ -68,7 +68,7 @@ def forecastIMean(
     sPCA: PCA,
     maturities: pd.Index,
     horizon: int,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Index]:
     mean = esg.forecastMean(horizon).cumsum() + cScore.iloc[-1]
     tMean = pd.DataFrame(
         tPCA.inverse_transform(mean[TCOLUMNS]),
@@ -81,16 +81,8 @@ def forecastIMean(
         maturities,
     )
     cMean = tMean + sMean
-    return tMean, cMean
-
-
-def getHistory(
-    treasury: pd.DataFrame, spread: pd.DataFrame, esg: ESGVar, cScore: pd.DataFrame
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    dates = cScore.index[-esg.model.k_ar :]
-    tHistory = treasury.loc[dates]
-    cHistory = tHistory + spread.loc[dates]
-    return tHistory, cHistory
+    historyDates = cScore.index[-esg.model.k_ar :]
+    return tMean, cMean, historyDates
 
 
 @validate_call(config={"strict": True, "arbitrary_types_allowed": True})
@@ -98,7 +90,7 @@ def forecastInterest(
     treasury: pd.DataFrame,
     spread: pd.DataFrame,
     horizon: PositiveInt = 60,
-) -> tuple[pd.DataFrame, ...]:
+) -> tuple[*tuple[pd.DataFrame, ...], pd.Index]:
     cScore, cLoading, tPCA, sPCA = runIPCA(treasury, spread)
     cScoreDiff = cScore.diff().dropna()
     esg = createESG(cScoreDiff)
@@ -120,8 +112,9 @@ def forecastInterest(
     )
     cForecast = tForecast + sForecast
 
-    tMean, cMean = forecastIMean(esg, cScore, tPCA, sPCA, maturities, horizon)
-    tHistory, cHistory = getHistory(treasury, spread, esg, cScore)
+    tMean, cMean, historyDates = forecastIMean(
+        esg, cScore, tPCA, sPCA, maturities, horizon
+    )
     return (
         cScore,
         cScoreDiff,
@@ -130,6 +123,5 @@ def forecastInterest(
         cForecast,
         tMean,
         cMean,
-        tHistory,
-        cHistory,
+        historyDates,
     )

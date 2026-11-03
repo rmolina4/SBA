@@ -5,19 +5,25 @@ from plot import *
 import pandas as pd
 
 BACKTEST_MONTHS = 36
+MATURITIES = (
+    (0.5, "six_month", "6-Month"),
+    (2.0, "two_year", "2-Year"),
+    (10.0, "ten_year", "10-Year"),
+)
+MATURITY = MATURITIES[2][0]
 
-
+# LOAD DATA
 treasury = loadTreasury()
 corporate = loadCorporate()
 spread = (corporate - treasury).dropna()
 
+# BACKTEST
 cScore, cLoading, tPCA, sPCA = runIPCA(
     treasury.iloc[:-BACKTEST_MONTHS], spread.iloc[:-BACKTEST_MONTHS]
 )
 esg = createESG(cScore.diff().dropna())
-maturities = treasury.columns
-tBacktestMean, cBacktestMean = forecastIMean(
-    esg, cScore, tPCA, sPCA, maturities, BACKTEST_MONTHS
+tBacktestMean, cBacktestMean, backtestHistoryDates = forecastIMean(
+    esg, cScore, tPCA, sPCA, treasury.columns, BACKTEST_MONTHS
 )
 tMSE = (
     (treasury.iloc[-BACKTEST_MONTHS:] - tBacktestMean)
@@ -31,6 +37,7 @@ cMSE = ((corporate.iloc[-BACKTEST_MONTHS:] - cBacktestMean).pow(2).mean()).renam
 print(tMSE)
 print(cMSE)
 
+# FORECAST
 (
     cScore,
     cScoreDiff,
@@ -39,15 +46,10 @@ print(cMSE)
     cForecast,
     tMean,
     cMean,
-    tHistory,
-    cHistory,
+    historyDates,
 ) = forecastInterest(treasury, spread)
 
-for maturity, filename, title in (
-    (0.5, "six_month", "6-Month"),
-    (2.0, "two_year", "2-Year"),
-    (10.0, "ten_year", "10-Year"),
-):
+for maturity, filename, title in MATURITIES:
     plot(
         pd.DataFrame(
             {"Treasury": treasury[maturity], "Corporate": corporate[maturity]}
@@ -67,49 +69,57 @@ for df, filename, title in (
         f"Treasury Yield and Credit Spread PCA {title}",
     )
 
-tPath = tForecast[10.0].unstack("scenario")
-cPath = cForecast[10.0].unstack("scenario")
-tPathHistory = pd.concat(
-    [tHistory[10.0]] * len(tPath.columns), axis=1, keys=tPath.columns
-)
-cPathHistory = pd.concat(
-    [cHistory[10.0]] * len(cPath.columns), axis=1, keys=cPath.columns
-)
+# FORECAST PLOT DATA
+tHistory = treasury.loc[historyDates]
+cHistory = corporate.loc[historyDates]
+tMean10 = pd.concat([tHistory[MATURITY].iloc[-1:], tMean[MATURITY]]).rename("VAR")
+cMean10 = pd.concat([cHistory[MATURITY].iloc[-1:], cMean[MATURITY]]).rename("VAR")
 
-plot(
-    (
-        Panel(
-            pd.concat([tPathHistory, tPath]),
-            "Treasury",
-            Style.PATHS,
-            pd.concat([tHistory[10.0].iloc[-1:], tMean[10.0]]),
-        ),
-        Panel(
-            pd.concat([cPathHistory, cPath]),
-            "Corporate",
-            Style.PATHS,
-            pd.concat([cHistory[10.0].iloc[-1:], cMean[10.0]]),
-        ),
-    ),
-    "10_year_spot_rate_paths",
-    "10-Year Spot Rate Forecast",
-)
+tPath10 = tForecast[MATURITY].unstack("scenario")
+cPath10 = cForecast[MATURITY].unstack("scenario")
+tPath10 = tPath10.reindex(historyDates.append(tPath10.index))
+cPath10 = cPath10.reindex(historyDates.append(cPath10.index))
+tPath10.loc[historyDates, :] = tHistory[MATURITY]
+cPath10.loc[historyDates, :] = cHistory[MATURITY]
 
-plot(
+# BACKTEST PLOT DATA
+tObserved10 = treasury.loc[backtestHistoryDates[0] :, MATURITY].rename("Observed")
+cObserved10 = corporate.loc[backtestHistoryDates[0] :, MATURITY].rename("Observed")
+tBacktestMean10 = pd.concat(
+    [treasury.loc[backtestHistoryDates[-1:], MATURITY], tBacktestMean[MATURITY]]
+).rename("VAR")
+cBacktestMean10 = pd.concat(
+    [corporate.loc[backtestHistoryDates[-1:], MATURITY], cBacktestMean[MATURITY]]
+).rename("VAR")
+
+for tLayers, cLayers, filename, title in (
     (
-        Panel(
-            treasury.iloc[-BACKTEST_MONTHS:][10.0].rename("Observed"),
-            "Treasury",
-            Style.NORMAL,
-            mean=tBacktestMean[10.0],
+        (
+            Layer(tPath10, Style.PATHS, "C0"),
+            Layer(tMean10, Style.DASHED, "#13476c"),
         ),
-        Panel(
-            corporate.iloc[-BACKTEST_MONTHS:][10.0].rename("Observed"),
-            "Corporate",
-            Style.NORMAL,
-            mean=cBacktestMean[10.0],
+        (
+            Layer(cPath10, Style.PATHS, "C1"),
+            Layer(cMean10, Style.DASHED, "#994c08"),
         ),
+        "paths",
+        "Forecast",
     ),
-    "10_year_spot_rate_backtest",
-    "10-Year Spot Rate Backtest",
-)
+    (
+        (
+            Layer(tObserved10, Style.LINE, "C0"),
+            Layer(tBacktestMean10, Style.DASHED, "C2"),
+        ),
+        (
+            Layer(cObserved10, Style.LINE, "C1"),
+            Layer(cBacktestMean10, Style.DASHED, "C2"),
+        ),
+        "backtest",
+        "Backtest",
+    ),
+):
+    plot(
+        (Panel("Treasury", tLayers), Panel("Corporate", cLayers)),
+        f"10_year_spot_rate_{filename}",
+        f"10-Year Spot Rate {title}",
+    )

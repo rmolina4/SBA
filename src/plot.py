@@ -2,24 +2,32 @@ from typing import Any, NamedTuple
 from enum import Enum
 from pathlib import Path
 from matplotlib.axes import Axes
-from matplotlib.colors import to_rgb
 
 import pandas as pd
 import matplotlib.pyplot as plt
 
 OUT_DIR = Path(__file__).resolve().parent.parent / "out"
-Style = Enum("Style", ["NORMAL", "PATHS"])
+Style = Enum("Style", ["POINTS", "LINE", "DASHED", "PATHS"])
 STYLE_OPTIONS: dict[Style, dict[str, Any]] = {
-    Style.NORMAL: {"style": "o", "markersize": 2, "legend": True},
+    Style.POINTS: {"style": "o", "markersize": 2, "legend": True},
+    Style.LINE: {"linestyle": "-", "linewidth": 1.5, "legend": True},
+    Style.DASHED: {"linestyle": "--", "linewidth": 2, "legend": True},
     Style.PATHS: {"linewidth": 0.5, "legend": False},
 }
 
 
-class Panel(NamedTuple):
+class Layer(NamedTuple):
     data: pd.DataFrame | pd.Series
-    title: str
     style: Style
-    mean: pd.Series | None = None
+    color: str | None = None
+
+
+type Layers = tuple[Layer, *tuple[Layer, ...]]
+
+
+class Panel(NamedTuple):
+    title: str
+    layers: Layers
 
 
 type Panels = tuple[Panel, *tuple[Panel, ...]]
@@ -32,40 +40,26 @@ def plot(
 ) -> None:
     showFigureTitle = not isinstance(data, pd.DataFrame)
     if isinstance(data, pd.DataFrame):
-        data = (Panel(data, title, Style.NORMAL),)
-
+        data = (Panel(title, (Layer(data, Style.POINTS),)),)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(
         1, len(data), figsize=(min(9 * len(data), 15), 6), squeeze=False
     )
     if showFigureTitle:
         fig.suptitle(title)
-
-    for i, (ax, panel) in enumerate(zip(axes[0], data)):
-        plotPanel(ax, panel, i)
-
+    for ax, panel in zip(axes[0], data):
+        plotPanel(ax, panel)
     fig.tight_layout()
     fig.savefig(str(OUT_DIR / f"{fileName}.png"), dpi=200)
     plt.close(fig)
 
 
-def plotPanel(ax: Axes, panel: Panel, i: int) -> None:
-    df, panelTitle, style, mean = panel
-    options = STYLE_OPTIONS[style].copy()
-
-    if style is Style.PATHS:
-        if not isinstance(df, pd.DataFrame):
-            raise TypeError("Style.PATHS requires a DataFrame")
-        options.update(color=f"C{i}", alpha=len(df.columns) ** -0.5)
-
-    df.plot(ax=ax, title=panelTitle, **options)
-    if mean is not None:
-        color = tuple(channel * 0.6 for channel in to_rgb(f"C{i}"))
-        mean.plot(
-            ax=ax,
-            color=color,
-            linestyle="--",
-            linewidth=2,
-            legend=True,
-            label="Mean",
-        )
+def plotPanel(ax: Axes, panel: Panel) -> None:
+    ax.set_title(panel.title)
+    for df, style, color in panel.layers:
+        options = STYLE_OPTIONS[style].copy()
+        if style is Style.PATHS:
+            options["alpha"] = len(df.columns) ** -0.5
+        if color is not None:
+            options["color"] = color
+        df.plot(ax=ax, **options)
