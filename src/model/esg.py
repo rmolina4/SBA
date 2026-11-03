@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pandas.tseries.offsets import BaseOffset
 from pydantic import NonNegativeInt, PositiveInt, TypeAdapter, validate_call
+from typing import cast
 
 from .diagnostic import Result, Rule, Severity
 
@@ -26,12 +27,14 @@ class ESG[ResultT: Result](ABC):
         init=False, repr=False, compare=False
     )
     frequency: BaseOffset = field(init=False, repr=False, compare=False)
+    k_ar: int = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         dates = DATES_ADAPTER.validate_python(self.model.dates)
         frequency = FREQUENCY_ADAPTER.validate_python(dates.freq)
         object.__setattr__(self, "dates", dates)
         object.__setattr__(self, "frequency", frequency)
+        object.__setattr__(self, "k_ar", cast(int, self.model.k_ar))
         self.validate()
 
     def validate(self) -> None:

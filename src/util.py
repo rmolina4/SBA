@@ -81,7 +81,7 @@ def forecastIMean(
         maturities,
     )
     cMean = tMean + sMean
-    historyDates = cScore.index[-esg.model.k_ar :]
+    historyDates = cScore.index[-esg.k_ar :]
     return tMean, cMean, historyDates
 
 
