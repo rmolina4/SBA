@@ -2,6 +2,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from typing import cast
+from numpy.typing import ArrayLike
 from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 from statsmodels.stats.diagnostic import (
     het_arch,  # pyright: ignore[reportUnknownVariableType]
@@ -54,6 +55,11 @@ RESIDUAL_RULES: tuple[Rule[Result], ...] = (
         Severity.WARNING,
         "Whiteness - evidence of residual autocorrelation",
     ),
+    Rule[Result](
+        lambda m: archTest(np.asarray(cast(ArrayLike, m.resid))),
+        Severity.WARNING,
+        "ARCH - evidence of conditional heteroscedasticity in at least one residual series",
+    ),
 )
 
 
@@ -75,11 +81,6 @@ VAR_RULES: tuple[Rule[Result] | Rule[VARResultsWrapper], ...] = (
         "KPSS - rejected level stationarity in at least one factor",
     ),
     *RESIDUAL_RULES,
-    Rule[VARResultsWrapper](
-        lambda m: archTest(m.resid.to_numpy()),
-        Severity.WARNING,
-        "ARCH - evidence of conditional heteroscedasticity in at least one residual series",
-    ),
 )
 
 
