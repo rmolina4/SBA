@@ -1,13 +1,13 @@
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal
 from pydantic import validate_call
 
 import pandas as pd
 import numpy as np
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-MORTALITY_BASE_YEAR = 2012
-MAX_MATURITY = 30
+DATA_DIR: Final = Path(__file__).resolve().parent.parent / "data"
+MORTALITY_BASE_YEAR: Final = 2012
+MAX_MATURITY: Final = 30
 
 
 # retiree mortalities

@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import cast
+from typing import Final, cast
 from numpy.typing import ArrayLike
 from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 from statsmodels.stats.diagnostic import (
@@ -18,8 +18,8 @@ from statsmodels.tsa.vector_ar.vecm import (
 
 import numpy as np
 
-MAX_LAGS = 24
-SIGNIF = 0.05
+MAX_LAGS: Final = 24
+SIGNIF: Final = 0.05
 Severity = Enum("Severity", ["ERROR", "WARNING"])
 CointegrationStatus = Enum("CointegrationStatus", ["NONE", "COINTEGRATED", "FULL_RANK"])
 type Result = VARResultsWrapper | VECMResults
@@ -32,7 +32,7 @@ class Rule[ResultT: Result]:
     message: str
 
 
-BASE_RULES: tuple[Rule[Result], ...] = (
+BASE_RULES: Final[tuple[Rule[Result], ...]] = (
     Rule[Result](
         lambda m: getLagOrder(m) <= 0,
         Severity.ERROR,
@@ -41,7 +41,7 @@ BASE_RULES: tuple[Rule[Result], ...] = (
 )
 
 
-RESIDUAL_RULES: tuple[Rule[Result], ...] = (
+RESIDUAL_RULES: Final[tuple[Rule[Result], ...]] = (
     Rule[Result](
         lambda m: m.test_normality(SIGNIF).conclusion == "reject",
         Severity.WARNING,
@@ -63,7 +63,7 @@ RESIDUAL_RULES: tuple[Rule[Result], ...] = (
 )
 
 
-VAR_RULES: tuple[Rule[Result] | Rule[VARResultsWrapper], ...] = (
+VAR_RULES: Final[tuple[Rule[Result] | Rule[VARResultsWrapper], ...]] = (
     *BASE_RULES,
     Rule[VARResultsWrapper](
         lambda m: not m.is_stable(),
@@ -84,7 +84,7 @@ VAR_RULES: tuple[Rule[Result] | Rule[VARResultsWrapper], ...] = (
 )
 
 
-VECM_RULES: tuple[Rule[Result] | Rule[VECMResults], ...] = (
+VECM_RULES: Final[tuple[Rule[Result] | Rule[VECMResults], ...]] = (
     *BASE_RULES,
     Rule[VECMResults](
         lambda m: johansenTest(cast(np.ndarray, m.y_all).T, getLagOrder(m))[1]

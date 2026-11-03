@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pandas.tseries.offsets import BaseOffset
 from pydantic import NonNegativeInt, PositiveInt, TypeAdapter, validate_call
+from typing import Final
 
 from .diagnostic import Result, Rule, Severity, getLagOrder
 
@@ -9,11 +10,11 @@ import numpy as np
 import pandas as pd
 import warnings
 
-DATES_ADAPTER = TypeAdapter(
+DATES_ADAPTER: Final = TypeAdapter(
     pd.DatetimeIndex | pd.PeriodIndex,
     config={"arbitrary_types_allowed": True},
 )
-FREQUENCY_ADAPTER = TypeAdapter(
+FREQUENCY_ADAPTER: Final = TypeAdapter(
     BaseOffset,
     config={"arbitrary_types_allowed": True},
 )

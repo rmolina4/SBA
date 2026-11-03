@@ -1,4 +1,4 @@
-from typing import Any, NamedTuple
+from typing import Any, Final, NamedTuple
 from enum import Enum
 from pathlib import Path
 from matplotlib.axes import Axes
@@ -6,9 +6,9 @@ from matplotlib.axes import Axes
 import pandas as pd
 import matplotlib.pyplot as plt
 
-OUT_DIR = Path(__file__).resolve().parent.parent / "out"
+OUT_DIR: Final = Path(__file__).resolve().parent.parent / "out"
 Style = Enum("Style", ["POINTS", "LINE", "DASHED", "PATHS"])
-STYLE_OPTIONS: dict[Style, dict[str, Any]] = {
+STYLE_OPTIONS: Final[dict[Style, dict[str, Any]]] = {
     Style.POINTS: {"style": "o", "markersize": 2, "legend": True},
     Style.LINE: {"linestyle": "-", "linewidth": 1.5, "legend": True},
     Style.DASHED: {"linestyle": "--", "linewidth": 2, "legend": True},

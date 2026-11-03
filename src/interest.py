@@ -1,16 +1,18 @@
+from typing import Final
+
 from data import loadTreasury, loadCorporate
 from util import *
 from plot import *
 
 import pandas as pd
 
-BACKTEST_MONTHS = 36
-MATURITIES = (
+BACKTEST_MONTHS: Final = 36
+MATURITIES: Final = (
     (0.5, "six_month", "6-Month"),
     (2.0, "two_year", "2-Year"),
     (10.0, "ten_year", "10-Year"),
 )
-MATURITY = MATURITIES[2][0]
+MATURITY: Final = MATURITIES[2][0]
 
 # LOAD DATA
 treasury = loadTreasury()

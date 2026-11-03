@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import cast
+from typing import Final, cast
 from pydantic import PositiveInt, validate_call
 from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 from statsmodels.tsa.api import VAR
@@ -11,9 +11,9 @@ from model.var import ESGVar
 import pandas as pd
 import warnings
 
-TCOLUMNS = ["TPC1", "TPC2", "TPC3"]
-SCOLUMNS = ["SPC1", "SPC2", "SPC3"]
-WARNINGS = True
+TCOLUMNS: Final = ["TPC1", "TPC2", "TPC3"]
+SCOLUMNS: Final = ["SPC1", "SPC2", "SPC3"]
+WARNINGS: Final = True
 
 
 def runPCA(
