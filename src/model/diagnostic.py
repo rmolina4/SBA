@@ -33,11 +33,6 @@ class Rule[ResultT: Result]:
 
 BASE_RULES: tuple[Rule[Result], ...] = (
     Rule[Result](
-        lambda m: m.dates is None or m.dates.freq is None,
-        Severity.ERROR,
-        "Model requires dated observations with a regular frequency.",
-    ),
-    Rule[Result](
         lambda m: cast(int, m.k_ar) <= 0,
         Severity.ERROR,
         "Model has no lags",

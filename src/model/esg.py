@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from pydantic import NonNegativeInt, PositiveInt, validate_call
+from dataclasses import dataclass, field
+from pandas.tseries.offsets import BaseOffset
+from pydantic import NonNegativeInt, PositiveInt, TypeAdapter, validate_call
 
 from .diagnostic import Result, Rule, Severity
 
@@ -8,12 +9,29 @@ import numpy as np
 import pandas as pd
 import warnings
 
+DATES_ADAPTER = TypeAdapter(
+    pd.DatetimeIndex | pd.PeriodIndex,
+    config={"arbitrary_types_allowed": True},
+)
+FREQUENCY_ADAPTER = TypeAdapter(
+    BaseOffset,
+    config={"arbitrary_types_allowed": True},
+)
+
 
 @dataclass(frozen=True, slots=True)
 class ESG[ResultT: Result](ABC):
     model: ResultT
+    dates: pd.DatetimeIndex | pd.PeriodIndex = field(
+        init=False, repr=False, compare=False
+    )
+    frequency: BaseOffset = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
+        dates = DATES_ADAPTER.validate_python(self.model.dates)
+        frequency = FREQUENCY_ADAPTER.validate_python(dates.freq)
+        object.__setattr__(self, "dates", dates)
+        object.__setattr__(self, "frequency", frequency)
         self.validate()
 
     def validate(self) -> None:
@@ -38,6 +56,12 @@ class ESG[ResultT: Result](ABC):
 
     @abstractmethod
     def forecastMean(self, horizon: int) -> pd.DataFrame: ...
+
+    def getForecastDates(self, horizon: int) -> pd.Index:
+        return pd.Index(
+            [self.dates[-1] + i * self.frequency for i in range(1, horizon + 1)],
+            name="date",
+        )
 
     @validate_call(config={"strict": True})
     def generateForecast(

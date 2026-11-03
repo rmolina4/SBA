@@ -21,12 +21,6 @@ class ESGVar(ESG[VARResultsWrapper]):
             self.model.names,
         )
 
-    def getForecastDates(self, horizon: int) -> pd.Index:
-        dates = self.model.model.data.dates
-        return pd.Index(
-            [dates[-1] + i * dates.freq for i in range(1, horizon + 1)], name="date"
-        )
-
     @validate_call(config={"strict": True})
     def forecastMean(self, horizon: PositiveInt) -> pd.DataFrame:
         history = self.getHistory()
@@ -47,5 +41,5 @@ class ESGVar(ESG[VARResultsWrapper]):
         return pd.Series(
             mean + shock,
             index=self.model.names,
-            name=history.index[-1] + self.model.model.data.dates.freq,
+            name=history.index[-1] + self.frequency,
         )
