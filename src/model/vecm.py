@@ -16,7 +16,7 @@ class ESGVecm(ESG[VECMResults]):
 
     def getHistory(self) -> pd.DataFrame:
         return pd.DataFrame(
-            cast(np.ndarray, self.model.y_all).T[-self.lagOrder :].copy(),
+            cast(np.ndarray, self.model.y_all).T[-self.lagOrder :],
             self.dates[-self.lagOrder :],
             cast(list[str], self.model.names),
         )

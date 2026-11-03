@@ -27,14 +27,16 @@ class ESG[ResultT: Result](ABC):
     )
     frequency: BaseOffset = field(init=False, repr=False, compare=False)
     lagOrder: int = field(init=False, repr=False, compare=False)
+    history: pd.DataFrame = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
+        self.validate()
         dates = DATES_ADAPTER.validate_python(self.model.dates)
         frequency = FREQUENCY_ADAPTER.validate_python(dates.freq)
         object.__setattr__(self, "dates", dates)
         object.__setattr__(self, "frequency", frequency)
         object.__setattr__(self, "lagOrder", getLagOrder(self.model))
-        self.validate()
+        object.__setattr__(self, "history", self.getHistory())
 
     def validate(self) -> None:
         for rule in self.getRules():
@@ -73,10 +75,9 @@ class ESG[ResultT: Result](ABC):
         seed: NonNegativeInt = 0,
     ) -> pd.DataFrame:
         rng = np.random.default_rng(seed)
-        initial = self.getHistory()
         scenarios: list[pd.DataFrame] = []
         for _ in range(scenario):
-            history = initial.copy()
+            history = self.history.copy()
             for _ in range(horizon):
                 row = self.step(history, rng)
                 history.loc[row.name] = row

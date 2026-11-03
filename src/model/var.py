@@ -23,8 +23,7 @@ class ESGVar(ESG[VARResultsWrapper]):
 
     @validate_call(config={"strict": True})
     def forecastMean(self, horizon: PositiveInt) -> pd.DataFrame:
-        history = self.getHistory()
-        mean = self.model.forecast(history.to_numpy(), horizon)
+        mean = self.model.forecast(self.history.to_numpy(), horizon)
         return pd.DataFrame(
             mean,
             self.getForecastDates(horizon),
