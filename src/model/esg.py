@@ -2,19 +2,33 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pydantic import NonNegativeInt, PositiveInt, validate_call
 
+from .diagnostic import Result, Rule, Severity
+
 import numpy as np
 import pandas as pd
+import warnings
 
 
 @dataclass(frozen=True, slots=True)
-class ESG[ResultT](ABC):
+class ESG[ResultT: Result](ABC):
     model: ResultT
 
     def __post_init__(self) -> None:
         self.validate()
 
+    def validate(self) -> None:
+        for rule in self.getRules():
+            result = rule.condition(self.model)
+            if result:
+                message = rule.message
+                if isinstance(result, tuple):
+                    message = f"{message}; Failing columns - {result}"
+                if rule.severity is Severity.ERROR:
+                    raise ValueError(message)
+                warnings.warn(message)
+
     @abstractmethod
-    def validate(self) -> None: ...
+    def getRules(self) -> tuple[Rule[Result] | Rule[ResultT], ...]: ...
 
     @abstractmethod
     def getHistory(self) -> pd.DataFrame: ...

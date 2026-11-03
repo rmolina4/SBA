@@ -2,26 +2,17 @@ from pydantic import PositiveInt, validate_call
 from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 
 from .esg import ESG
-from .diagnostic import VAR_RULES, Severity
+from .diagnostic import VAR_RULES, Result, Rule
 
 import numpy as np
 import pandas as pd
-import warnings
 
 
 class ESGVar(ESG[VARResultsWrapper]):
     __slots__ = ()
 
-    def validate(self) -> None:
-        for rule in VAR_RULES:
-            result = rule.condition(self.model)
-            if result:
-                message = rule.message
-                if isinstance(result, tuple):
-                    message = f"{message}; Failing columns - {result}"
-                if rule.severity is Severity.ERROR:
-                    raise ValueError(message)
-                warnings.warn(message)
+    def getRules(self) -> tuple[Rule[Result] | Rule[VARResultsWrapper], ...]:
+        return VAR_RULES
 
     def getHistory(self) -> pd.DataFrame:
         return pd.DataFrame(
