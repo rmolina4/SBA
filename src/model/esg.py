@@ -2,9 +2,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pandas.tseries.offsets import BaseOffset
 from pydantic import NonNegativeInt, PositiveInt, TypeAdapter, validate_call
-from typing import cast
 
-from .diagnostic import Result, Rule, Severity
+from .diagnostic import Result, Rule, Severity, getLagOrder
 
 import numpy as np
 import pandas as pd
@@ -34,7 +33,7 @@ class ESG[ResultT: Result](ABC):
         frequency = FREQUENCY_ADAPTER.validate_python(dates.freq)
         object.__setattr__(self, "dates", dates)
         object.__setattr__(self, "frequency", frequency)
-        object.__setattr__(self, "k_ar", cast(int, self.model.k_ar))
+        object.__setattr__(self, "k_ar", getLagOrder(self.model))
         self.validate()
 
     def validate(self) -> None:

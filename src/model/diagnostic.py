@@ -34,7 +34,7 @@ class Rule[ResultT: Result]:
 
 BASE_RULES: tuple[Rule[Result], ...] = (
     Rule[Result](
-        lambda m: cast(int, m.k_ar) <= 0,
+        lambda m: getLagOrder(m) <= 0,
         Severity.ERROR,
         "Model has no lags",
     ),
@@ -49,7 +49,7 @@ RESIDUAL_RULES: tuple[Rule[Result], ...] = (
     ),
     Rule[Result](
         lambda m: m.test_whiteness(
-            max(MAX_LAGS, cast(int, m.k_ar) + 1), SIGNIF
+            max(MAX_LAGS, getLagOrder(m) + 1), SIGNIF
         ).conclusion
         == "reject",
         Severity.WARNING,
@@ -87,13 +87,17 @@ VAR_RULES: tuple[Rule[Result] | Rule[VARResultsWrapper], ...] = (
 VECM_RULES: tuple[Rule[Result] | Rule[VECMResults], ...] = (
     *BASE_RULES,
     Rule[VECMResults](
-        lambda m: johansenTest(cast(np.ndarray, m.y_all).T, cast(int, m.k_ar))[1]
+        lambda m: johansenTest(cast(np.ndarray, m.y_all).T, getLagOrder(m))[1]
         is not CointegrationStatus.COINTEGRATED,
         Severity.ERROR,
         "Johansen - expected partial cointegration",
     ),
     *RESIDUAL_RULES,
 )
+
+
+def getLagOrder(model: Result) -> int:
+    return cast(int, model.k_ar)
 
 
 def adfTest(data: np.ndarray) -> tuple[int, ...]:
