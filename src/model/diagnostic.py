@@ -83,6 +83,18 @@ VAR_RULES: tuple[Rule[Result] | Rule[VARResultsWrapper], ...] = (
 )
 
 
+VECM_RULES: tuple[Rule[Result] | Rule[VECMResults], ...] = (
+    *BASE_RULES,
+    Rule[VECMResults](
+        lambda m: johansenTest(cast(np.ndarray, m.y_all).T, cast(int, m.k_ar))[1]
+        is not CointegrationStatus.COINTEGRATED,
+        Severity.ERROR,
+        "Johansen - expected partial cointegration",
+    ),
+    *RESIDUAL_RULES,
+)
+
+
 def adfTest(data: np.ndarray) -> tuple[int, ...]:
     return tuple(
         j
