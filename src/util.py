@@ -75,12 +75,11 @@ def forecastIMean(
         mean.index,
         maturities,
     )
-    sMean = pd.DataFrame(
+    cMean = tMean + pd.DataFrame(
         sPCA.inverse_transform(mean[SCOLUMNS]),
         mean.index,
         maturities,
     )
-    cMean = tMean + sMean
     historyDates = cScore.index[-esg.lagOrder :]
     return tMean, cMean, historyDates
 
@@ -105,12 +104,11 @@ def forecastInterest(
         forecast.index,
         maturities,
     )
-    sForecast = pd.DataFrame(
+    cForecast = tForecast + pd.DataFrame(
         sPCA.inverse_transform(forecast[SCOLUMNS]),
         forecast.index,
         maturities,
     )
-    cForecast = tForecast + sForecast
 
     tMean, cMean, historyDates = forecastIMean(
         esg, cScore, tPCA, sPCA, maturities, horizon

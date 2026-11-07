@@ -72,26 +72,26 @@ for df, filename, title in (
     )
 
 # FORECAST PLOT DATA
-tHistory = treasury.loc[historyDates]
-cHistory = corporate.loc[historyDates]
-tMean10 = pd.concat([tHistory[MATURITY].iloc[-1:], tMean[MATURITY]]).rename("VAR")
-cMean10 = pd.concat([cHistory[MATURITY].iloc[-1:], cMean[MATURITY]]).rename("VAR")
+tHistory = treasury.loc[historyDates, MATURITY]
+cHistory = corporate.loc[historyDates, MATURITY]
+tMean10 = pd.concat([tHistory.iloc[-1:], tMean[MATURITY]]).rename("VAR")
+cMean10 = pd.concat([cHistory.iloc[-1:], cMean[MATURITY]]).rename("VAR")
 
 tPath10 = tForecast[MATURITY].unstack("scenario")
 cPath10 = cForecast[MATURITY].unstack("scenario")
 tPath10 = tPath10.reindex(historyDates.append(tPath10.index))
 cPath10 = cPath10.reindex(historyDates.append(cPath10.index))
-tPath10.loc[historyDates, :] = tHistory[MATURITY]
-cPath10.loc[historyDates, :] = cHistory[MATURITY]
+tPath10.loc[historyDates, :] = tHistory
+cPath10.loc[historyDates, :] = cHistory
 
 # BACKTEST PLOT DATA
 tObserved10 = treasury.loc[backtestHistoryDates[0] :, MATURITY].rename("Observed")
 cObserved10 = corporate.loc[backtestHistoryDates[0] :, MATURITY].rename("Observed")
 tBacktestMean10 = pd.concat(
-    [treasury.loc[backtestHistoryDates[-1:], MATURITY], tBacktestMean[MATURITY]]
+    [tObserved10.loc[backtestHistoryDates[-1:]], tBacktestMean[MATURITY]]
 ).rename("VAR")
 cBacktestMean10 = pd.concat(
-    [corporate.loc[backtestHistoryDates[-1:], MATURITY], cBacktestMean[MATURITY]]
+    [cObserved10.loc[backtestHistoryDates[-1:]], cBacktestMean[MATURITY]]
 ).rename("VAR")
 
 for tLayers, cLayers, filename, title in (

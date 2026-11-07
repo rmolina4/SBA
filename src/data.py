@@ -51,7 +51,7 @@ def loadSurvival() -> pd.DataFrame:
     improvement = loadImprovement().loc[
         mortality.index, pd.IndexSlice[:, MORTALITY_BASE_YEAR + 1 :]
     ]
-    mortality = pd.concat(
+    return 1 - pd.concat(
         {
             sex: pd.concat(
                 [
@@ -65,7 +65,6 @@ def loadSurvival() -> pd.DataFrame:
         axis=1,
         names=["sex", "year"],
     )
-    return 1 - mortality
 
 
 @validate_call(config={"strict": True})
