@@ -11,17 +11,13 @@ from statsmodels.tsa.stattools import (
     adfuller,  # pyright: ignore[reportUnknownVariableType]
     kpss,  # pyright: ignore[reportUnknownVariableType]
 )
-from statsmodels.tsa.vector_ar.vecm import (
-    VECMResults,
-    select_coint_rank,  # pyright: ignore[reportUnknownVariableType]
-)
+from statsmodels.tsa.vector_ar.vecm import VECMResults
 
 import numpy as np
 
 MAX_LAGS: Final = 24
 SIGNIF: Final = 0.05
 Severity = Enum("Severity", ["ERROR", "WARNING"])
-CointegrationStatus = Enum("CointegrationStatus", ["NONE", "COINTEGRATED", "FULL_RANK"])
 type Result = VARResultsWrapper | VECMResults
 
 
@@ -34,9 +30,10 @@ class Rule[ResultT: Result]:
 
 BASE_RULES: Final[tuple[Rule[Result], ...]] = (
     Rule[Result](
-        lambda m: getLagOrder(m) <= 0,
+        lambda m: m.exog is not None
+        or (isinstance(m, VECMResults) and m.exog_coint is not None),
         Severity.ERROR,
-        "Model has no lags",
+        "Model has external regressors",
     ),
 )
 
@@ -64,6 +61,16 @@ RESIDUAL_RULES: Final[tuple[Rule[Result], ...]] = (
 VAR_RULES: Final[tuple[Rule[Result] | Rule[VARResultsWrapper], ...]] = (
     *BASE_RULES,
     Rule[VARResultsWrapper](
+        lambda m: getLagOrder(m) <= 0,
+        Severity.ERROR,
+        "Model has no lags",
+    ),
+    Rule[VARResultsWrapper](
+        lambda m: m.trend not in ("n", "c"),
+        Severity.ERROR,
+        "VAR supports only no trend or a constant",
+    ),
+    Rule[VARResultsWrapper](
         lambda m: not m.is_stable(),
         Severity.ERROR,
         "VAR is unstable",
@@ -85,10 +92,19 @@ VAR_RULES: Final[tuple[Rule[Result] | Rule[VARResultsWrapper], ...]] = (
 VECM_RULES: Final[tuple[Rule[Result] | Rule[VECMResults], ...]] = (
     *BASE_RULES,
     Rule[VECMResults](
-        lambda m: johansenTest(cast(np.ndarray, m.y_all).T, getLagOrder(m))[1]
-        is not CointegrationStatus.COINTEGRATED,
+        lambda m: cast(str, m.deterministic) != "co",
         Severity.ERROR,
-        "Johansen - expected partial cointegration",
+        "VECM requires only a constant outside cointegration",
+    ),
+    Rule[VECMResults](
+        lambda m: m.seasons != 0,
+        Severity.ERROR,
+        "VECM does not support seasonality",
+    ),
+    Rule[VECMResults](
+        lambda m: not 0 < m.coint_rank < m.neqs,
+        Severity.ERROR,
+        "VECM requires a fitted rank with partial cointegration",
     ),
     *RESIDUAL_RULES,
 )
@@ -120,19 +136,3 @@ def archTest(residuals: np.ndarray) -> tuple[int, ...]:
         for j in range(residuals.shape[1])
         if het_arch(residuals[:, j], result_object=True)[1] < SIGNIF
     )
-
-
-def johansenTest(data: np.ndarray, k_ar: int) -> tuple[int, CointegrationStatus]:
-    result = select_coint_rank(
-        data,
-        0,
-        k_ar - 1,
-        signif=SIGNIF,
-    )
-    if result.rank == 0:
-        status = CointegrationStatus.NONE
-    elif result.rank == result.neqs:
-        status = CointegrationStatus.FULL_RANK
-    else:
-        status = CointegrationStatus.COINTEGRATED
-    return (result.rank, status)

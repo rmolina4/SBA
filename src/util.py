@@ -86,7 +86,7 @@ def forecastIMean(
 def forecastInterest(
     treasury: pd.DataFrame,
     spread: pd.DataFrame,
-    horizon: int = 60,
+    horizon: int,
 ) -> tuple[*tuple[pd.DataFrame, ...], pd.Index]:
     cScore, cLoading, tPCA, sPCA = runIPCA(treasury, spread)
     cScoreDiff = cScore.diff().dropna()

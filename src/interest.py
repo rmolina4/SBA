@@ -49,7 +49,7 @@ print(cMSE)
     tMean,
     cMean,
     historyDates,
-) = forecastInterest(treasury, spread)
+) = forecastInterest(treasury, spread, 60)
 
 for maturity, filename, title in MATURITIES:
     plot(
