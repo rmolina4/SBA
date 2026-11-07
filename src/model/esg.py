@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pandas.tseries.offsets import BaseOffset
 from pydantic import NonNegativeInt, PositiveInt, TypeAdapter, validate_call
-from typing import Final
+from typing import Final, cast
 
 from .diagnostic import Result, Rule, Severity, getLagOrder
 
@@ -57,14 +57,30 @@ class ESG[ResultT: Result](ABC):
     def getHistory(self) -> pd.DataFrame: ...
 
     @abstractmethod
-    def step(self, history: pd.DataFrame, rng: np.random.Generator) -> pd.Series: ...
+    def forecastMean(
+        self, horizon: PositiveInt, history: pd.DataFrame | None = None
+    ) -> pd.DataFrame: ...
 
-    @abstractmethod
-    def forecastMean(self, horizon: int) -> pd.DataFrame: ...
+    def getShock(self, rng: np.random.Generator) -> pd.Series:
+        return pd.Series(
+            rng.multivariate_normal(
+                np.zeros(self.history.shape[1]),
+                cast(np.ndarray, self.model.sigma_u),
+                check_valid="raise",
+            ),
+            index=self.history.columns,
+        )
 
-    def getForecastDates(self, horizon: int) -> pd.Index:
+    def step(self, history: pd.DataFrame, rng: np.random.Generator) -> pd.Series:
+        mean = self.forecastMean(1, history).iloc[0]
+        return (mean + self.getShock(rng)).rename(history.index[-1] + self.frequency)
+
+    def getForecastDates(
+        self, horizon: int, history: pd.DataFrame | None = None
+    ) -> pd.Index:
+        dates = self.dates if history is None else history.index
         return pd.Index(
-            [self.dates[-1] + i * self.frequency for i in range(1, horizon + 1)],
+            [dates[-1] + i * self.frequency for i in range(1, horizon + 1)],
             name="date",
         )
 

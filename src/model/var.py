@@ -4,7 +4,6 @@ from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 from .esg import ESG
 from .diagnostic import VAR_RULES, Result, Rule
 
-import numpy as np
 import pandas as pd
 
 
@@ -21,24 +20,13 @@ class ESGVar(ESG[VARResultsWrapper]):
             self.model.names,
         )
 
-    @validate_call(config={"strict": True})
-    def forecastMean(self, horizon: PositiveInt) -> pd.DataFrame:
-        mean = self.model.forecast(self.history.to_numpy(), horizon)
+    @validate_call(config={"strict": True, "arbitrary_types_allowed": True})
+    def forecastMean(
+        self, horizon: PositiveInt, history: pd.DataFrame | None = None
+    ) -> pd.DataFrame:
+        history = self.history if history is None else history
         return pd.DataFrame(
-            mean,
-            self.getForecastDates(horizon),
+            self.model.forecast(history.to_numpy(), horizon),
+            self.getForecastDates(horizon, history),
             self.model.names,
-        )
-
-    def step(self, history: pd.DataFrame, rng: np.random.Generator) -> pd.Series:
-        mean = self.model.forecast(history.to_numpy(), 1)[0]
-        shock = rng.multivariate_normal(
-            np.zeros(self.model.neqs),
-            self.model.sigma_u,
-            check_valid="raise",
-        )
-        return pd.Series(
-            mean + shock,
-            index=self.model.names,
-            name=history.index[-1] + self.frequency,
         )

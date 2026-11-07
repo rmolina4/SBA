@@ -1,6 +1,5 @@
 from collections.abc import Callable
 from typing import Final, cast
-from pydantic import PositiveInt, validate_call
 from statsmodels.tsa.vector_ar.var_model import VARResultsWrapper
 from statsmodels.tsa.api import VAR
 from sklearn.decomposition import PCA
@@ -84,11 +83,10 @@ def forecastIMean(
     return tMean, cMean, historyDates
 
 
-@validate_call(config={"strict": True, "arbitrary_types_allowed": True})
 def forecastInterest(
     treasury: pd.DataFrame,
     spread: pd.DataFrame,
-    horizon: PositiveInt = 60,
+    horizon: int = 60,
 ) -> tuple[*tuple[pd.DataFrame, ...], pd.Index]:
     cScore, cLoading, tPCA, sPCA = runIPCA(treasury, spread)
     cScoreDiff = cScore.diff().dropna()
