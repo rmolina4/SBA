@@ -48,9 +48,7 @@ RESIDUAL_RULES: Final[tuple[Rule[Result], ...]] = (
         "Normality - evidence against Gaussian residuals",
     ),
     Rule[Result](
-        lambda m: m.test_whiteness(
-            max(MAX_LAGS, getLagOrder(m) + 1), SIGNIF
-        ).conclusion
+        lambda m: m.test_whiteness(max(MAX_LAGS, getLagOrder(m) + 1), SIGNIF).conclusion
         == "reject",
         Severity.WARNING,
         "Whiteness - evidence of residual autocorrelation",
