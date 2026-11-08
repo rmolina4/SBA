@@ -44,6 +44,7 @@ print(cMSE)
     cScore,
     cScoreDiff,
     cLoading,
+    cResidual,
     tForecast,
     cForecast,
     tMean,
@@ -64,6 +65,7 @@ for df, filename, title in (
     (cScore, "cScore", "Scores"),
     (cLoading, "cLoading", "Loadings"),
     (cScoreDiff, "cScoreDiff", "Score Differences"),
+    (cResidual, "cResidual", "VAR Residuals"),
 ):
     plot(
         df,

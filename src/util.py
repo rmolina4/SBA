@@ -91,6 +91,7 @@ def forecastInterest(
     cScore, cLoading, tPCA, sPCA = runIPCA(treasury, spread)
     cScoreDiff = cScore.diff().dropna()
     esg = createESG(cScoreDiff)
+    cResidual = pd.DataFrame(esg.model.resid)
     maturities = treasury.columns
 
     forecast = (
@@ -115,6 +116,7 @@ def forecastInterest(
         cScore,
         cScoreDiff,
         cLoading,
+        cResidual,
         tForecast,
         cForecast,
         tMean,
