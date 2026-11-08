@@ -50,8 +50,9 @@ class ESG[ResultT: Result](ABC):
                     raise ValueError(message)
                 warnings.warn(message)
 
+    @staticmethod
     @abstractmethod
-    def getRules(self) -> tuple[Rule[Result] | Rule[ResultT], ...]: ...
+    def getRules() -> tuple[Rule[Result] | Rule[ResultT], ...]: ...
 
     @abstractmethod
     def getHistory(self) -> pd.DataFrame: ...

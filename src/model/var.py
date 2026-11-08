@@ -10,7 +10,8 @@ import pandas as pd
 class ESGVar(ESG[VARResultsWrapper]):
     __slots__ = ()
 
-    def getRules(self) -> tuple[Rule[Result] | Rule[VARResultsWrapper], ...]:
+    @staticmethod
+    def getRules() -> tuple[Rule[Result] | Rule[VARResultsWrapper], ...]:
         return VAR_RULES
 
     def getHistory(self) -> pd.DataFrame:

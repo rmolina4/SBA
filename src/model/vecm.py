@@ -15,7 +15,8 @@ import pandas as pd
 class ESGVecm(ESG[VECMResults]):
     __slots__ = ()
 
-    def getRules(self) -> tuple[Rule[Result] | Rule[VECMResults], ...]:
+    @staticmethod
+    def getRules() -> tuple[Rule[Result] | Rule[VECMResults], ...]:
         return VECM_RULES
 
     def getHistory(self) -> pd.DataFrame:
