@@ -89,7 +89,7 @@ class ESG[ResultT: Result](ABC):
     def generateForecast(
         self,
         horizon: PositiveInt = 60,
-        scenario: PositiveInt = 10000,
+        scenario: PositiveInt = 1000,
         seed: NonNegativeInt = 0,
     ) -> pd.DataFrame:
         rng = np.random.default_rng(seed)

@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 OUT_DIR: Final = Path(__file__).resolve().parent.parent / "out"
+IMAGE_DIR: Final = OUT_DIR / "images"
 Style = Enum("Style", ["POINTS", "LINE", "DASHED", "PATHS"])
 STYLE_OPTIONS: Final[dict[Style, dict[str, Any]]] = {
     Style.POINTS: {"style": "o", "markersize": 2, "legend": True},
@@ -41,7 +42,6 @@ def plot(
     showFigureTitle = not isinstance(data, pd.DataFrame)
     if isinstance(data, pd.DataFrame):
         data = (Panel(title, (Layer(data, Style.POINTS),)),)
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(
         1, len(data), figsize=(min(9 * len(data), 15), 6), squeeze=False
     )
@@ -50,7 +50,8 @@ def plot(
     for ax, panel in zip(axes[0], data):
         plotPanel(ax, panel)
     fig.tight_layout()
-    fig.savefig(str(OUT_DIR / f"{fileName}.png"), dpi=200)
+    IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+    fig.savefig(str(IMAGE_DIR / f"{fileName}.png"), dpi=200)
     plt.close(fig)
 
 

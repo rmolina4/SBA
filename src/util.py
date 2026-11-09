@@ -48,15 +48,15 @@ def runIPCA(
 
 
 def createESG(df: pd.DataFrame) -> ESGVar:
-    esgWarnings: list[warnings.WarningMessage] = []
     with warnings.catch_warnings(record=True) as esgWarnings:
         warnings.simplefilter("always")
         fit = cast(Callable[..., VARResultsWrapper], VAR(df).fit)
         esg = ESGVar(fit(MAX_LAGS, ic="aic", trend="c"))
     if WARNINGS:
-        print("\nESG Warnings:")
+        print("ESG Warnings:")
         for w in esgWarnings:
-            print(f"\t{w.message}")
+            print(w.message)
+        print()
     return esg
 
 
@@ -67,7 +67,7 @@ def forecastIMean(
     sPCA: PCA,
     maturities: pd.Index,
     horizon: int,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.Index]:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     mean = esg.forecastMean(horizon).cumsum() + cScore.iloc[-1]
     tMean = pd.DataFrame(
         tPCA.inverse_transform(mean[TCOLUMNS]),
@@ -79,15 +79,14 @@ def forecastIMean(
         mean.index,
         maturities,
     )
-    historyDates = cScore.index[-esg.lagOrder :]
-    return tMean, cMean, historyDates
+    return tMean, cMean
 
 
 def forecastInterest(
     treasury: pd.DataFrame,
     spread: pd.DataFrame,
     horizon: int,
-) -> tuple[*tuple[pd.DataFrame, ...], pd.Index]:
+) -> tuple[*tuple[pd.DataFrame, ...], pd.Index, pd.Index]:
     cScore, cLoading, tPCA, sPCA = runIPCA(treasury, spread)
     cScoreDiff = cScore.diff().dropna()
     esg = createESG(cScoreDiff)
@@ -98,28 +97,29 @@ def forecastInterest(
         esg.generateForecast(horizon).groupby(level="scenario").cumsum()
         + cScore.iloc[-1]
     )
-    tForecast = pd.DataFrame(
+    tPath = pd.DataFrame(
         tPCA.inverse_transform(forecast[TCOLUMNS]),
         forecast.index,
         maturities,
     )
-    cForecast = tForecast + pd.DataFrame(
+    cPath = tPath + pd.DataFrame(
         sPCA.inverse_transform(forecast[SCOLUMNS]),
         forecast.index,
         maturities,
     )
 
-    tMean, cMean, historyDates = forecastIMean(
-        esg, cScore, tPCA, sPCA, maturities, horizon
-    )
+    tMean, cMean = forecastIMean(esg, cScore, tPCA, sPCA, maturities, horizon)
+    historyDates = cScore.index[-esg.lagOrder :]
+    forecastDates = tMean.index
     return (
         cScore,
         cScoreDiff,
         cLoading,
         cResidual,
-        tForecast,
-        cForecast,
+        tPath,
+        cPath,
         tMean,
         cMean,
         historyDates,
+        forecastDates,
     )
