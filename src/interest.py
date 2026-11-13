@@ -6,14 +6,13 @@ from plot import *
 
 import pandas as pd
 
-EVAL_DIR: Final = OUT_DIR / "evaluation"
 MATURITIES: Final = (
     (0.5, "six_month", "6-Month"),
     (2.0, "two_year", "2-Year"),
     (10.0, "ten_year", "10-Year"),
 )
 MATURITY: Final = MATURITIES[2][0]
-BACKTEST_HORIZON: Final = 24
+BACKTEST_HORIZON: Final = 36
 BACKTEST_MONTHS: Final = 60
 FORECAST_HORIZON: Final = 60
 
@@ -50,8 +49,8 @@ for cutoff in range(BACKTEST_HORIZON, BACKTEST_MONTHS + 1):
         varSE = (observed - mean).pow(2)
         bmSE = (observed - lastObserved).pow(2)
 
-        lower = path.groupby(level="date").quantile(0.025)
-        upper = path.groupby(level="date").quantile(0.975)
+        lower = path.groupby(level="date").quantile(0.05)
+        upper = path.groupby(level="date").quantile(0.95)
         coverage = (observed >= lower) & (observed <= upper)
 
         backtestData.append(
@@ -78,9 +77,6 @@ backtestMetrics = (
     .mean()
     .rename(index={"VAR_SE": "VAR_MSE", "BM_SE": "BM_MSE"}, level="metric")
 )
-EVAL_DIR.mkdir(parents=True, exist_ok=True)
-backtestResult.to_csv(EVAL_DIR / "backtestResult.csv")
-backtestMetrics.to_csv(EVAL_DIR / "backtestMetrics.csv")
 
 # FORECAST
 (
@@ -111,8 +107,12 @@ cPath10.loc[historyDates, :] = cHistory
 # BACKTEST PLOT DATA
 tBacktestMean, backtestHistoryDates = backtestPlots[BACKTEST_MONTHS, "T"]
 cBacktestMean, _ = backtestPlots[BACKTEST_MONTHS, "C"]
-tObserved10 = treasury.loc[backtestHistoryDates[0] :, MATURITY].rename("Observed")
-cObserved10 = corporate.loc[backtestHistoryDates[0] :, MATURITY].rename("Observed")
+tObserved10 = treasury.loc[
+    backtestHistoryDates[0] : tBacktestMean.index[-1], MATURITY
+].rename("Observed")
+cObserved10 = corporate.loc[
+    backtestHistoryDates[0] : cBacktestMean.index[-1], MATURITY
+].rename("Observed")
 tBacktestMean10 = pd.concat(
     [tObserved10.loc[backtestHistoryDates[-1:]], tBacktestMean[MATURITY]]
 ).rename("VAR")
@@ -137,10 +137,28 @@ for tLayers, cLayers, filename, title in (
         (
             Layer(tObserved10, Style.LINE, "C0"),
             Layer(tBacktestMean10, Style.DASHED, "C2"),
+            Layer(
+                pd.Series(
+                    tObserved10.loc[backtestHistoryDates[-1]],
+                    index=tBacktestMean10.index,
+                    name="Benchmark",
+                ),
+                Style.DASHED,
+                "C3",
+            ),
         ),
         (
             Layer(cObserved10, Style.LINE, "C1"),
             Layer(cBacktestMean10, Style.DASHED, "C2"),
+            Layer(
+                pd.Series(
+                    cObserved10.loc[backtestHistoryDates[-1]],
+                    index=cBacktestMean10.index,
+                    name="Benchmark",
+                ),
+                Style.DASHED,
+                "C3",
+            ),
         ),
         "backtest",
         "Backtest",
